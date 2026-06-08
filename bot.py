@@ -139,14 +139,14 @@ async def on_status(message: Message):
     ) or "  Faol loyihalar yo'q"
 
     await message.answer(
-        f"TIZIM HOLATI\n\n"
-        f"Rejim: {mode}\n"
-        f"Userbot: {ub}\n\n"
-        f"LOYIHALAR:\n{proj_lines}\n\n"
-        f"MOLIYA:\n"
+        f"⚙️ TIZIM HOLATI\n\n"
+        f"🔧 Rejim: {mode}\n"
+        f"📡 Userbot: {ub}\n\n"
+        f"📁 LOYIHALAR:\n{proj_lines}\n\n"
+        f"💰 MOLIYA:\n"
         f"  Avanslar: ${adv:g}\n"
         f"  Kutilmoqda: ${pend:g}\n\n"
-        f"MIJOZLAR (bugun):\n"
+        f"👥 MIJOZLAR (bugun):\n"
         f"  Jami: {stats['total_clients']}\n"
         f"  Yangi: {stats['new_today']}\n"
         f"  Faol: {stats['active_today']}\n"
@@ -165,13 +165,13 @@ async def on_clients(message: Message):
     if not rows:
         await message.answer("Hali birorta mijoz yo'q.")
         return
-    lines = ["So'nggi 15 ta mijoz:\n"]
+    lines = ["👥 So'nggi 15 ta mijoz:\n"]
     for r in rows:
         uname = f"@{r['username']}" if r["username"] else "—"
-        status = " [ESKALATSIYA]" if r["status"] == "escalated" else ""
+        status = " ⚠️" if r["status"] == "escalated" else ""
         lines.append(
-            f"{r['name']} ({uname}){status}\n"
-            f"  {r['message_count']} xabar | {r['last_activity'][:10]}\n"
+            f"👤 {r['name']} ({uname}){status}\n"
+            f"  💬 {r['message_count']} xabar | 📅 {r['last_activity'][:10]}\n"
             f"  \"{(r['last_message'] or '')[:60]}\"\n"
         )
     await message.answer("\n".join(lines))
@@ -185,17 +185,18 @@ async def on_projects(message: Message):
     if not projs:
         await message.answer("Faol loyihalar yo'q.")
         return
-    lines = ["Faol loyihalar:\n"]
+    lines = ["📁 Faol loyihalar:\n"]
     for p in projs:
         passed = (date.today() - date.fromisoformat(p["start_date"])).days
         left = max(0, p["duration_days"] - passed)
         tasks = json.loads(p["tasks"])
         open_t = len(tasks)
+        risk = "⚠️ " if left < 3 and p["progress"] < 80 else ""
         lines.append(
-            f"{p['name']}\n"
-            f"  Progress: {p['progress']:g}% | Qoldi: {left} kun\n"
-            f"  Narx: ${p['price_usd']:g} | Vazifalar: {open_t} ta\n"
-            f"  Mijoz: {p['client_label'] or '—'}\n"
+            f"{risk}📌 {p['name']}\n"
+            f"  📊 Progress: {p['progress']:g}% | ⏳ Qoldi: {left} kun\n"
+            f"  💵 Narx: ${p['price_usd']:g} | 📋 Vazifalar: {open_t} ta\n"
+            f"  👤 Mijoz: {p['client_label'] or '—'}\n"
         )
     await message.answer("\n".join(lines))
 
@@ -205,16 +206,16 @@ async def on_help(message: Message):
     if not is_developer(message.chat.id):
         return
     await message.answer(
-        "BUYRUQLAR:\n\n"
+        "📋 BUYRUQLAR:\n\n"
         "/status — tizim holati\n"
         "/clients — mijozlar ro'yxati\n"
         "/projects — loyihalar ro'yxati\n"
         "/help — shu ro'yxat\n\n"
-        "MIJOZGA YOZISH:\n"
-        "@username yoki +998XXXXXXXXX yuboring\n"
-        "Keyboard orqali biznes turi va maqsad tanlanadi\n\n"
-        "BOSHQA:\n"
-        "Deep Work rejimi uchun: 'deep work on' yozing"
+        "📤 MIJOZGA YOZISH:\n"
+        "@username yoki +998XXXXXXXXX yuboring\n\n"
+        "🔕 DEEP WORK:\n"
+        "'deep work on' — mijoz javoblari tasdiqdan o'tadi\n"
+        "'deep work off' — to'g'ridan-to'g'ri javob"
     )
 
 

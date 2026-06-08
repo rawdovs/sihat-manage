@@ -212,11 +212,6 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
         hist.append({"role": "user", "content": text})
         hist.append({"role": "assistant", "content": reply})
 
-        if is_brand_new:
-            uname_str = f"@{username}" if username else f"ID: {sender_id}"
-            await _notify_developer(
-                f"Yangi mijoz\n{name} ({uname_str})\n\"{text[:120]}\""
-            )
         return
 
     # Mavjud mijoz — AI javob beradi

@@ -1,0 +1,7 @@
+aiogram>=3.7,<4.0
+google-genai>=1.0
+APScheduler>=3.10
+aiohttp>=3.9
+python-dotenv>=1.0
+openai>=1.40          # ixtiyoriy: ovozli xabar (Whisper) uchun
+telethon>=1.36        # userbot: dasturchining akkauntidan yozish uchun

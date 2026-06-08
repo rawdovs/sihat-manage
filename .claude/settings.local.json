@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/bin/pip install *)",
+      "Bash(venv/bin/python -c \"import google.generativeai; import telethon; print\\('OK'\\)\")",
+      "Bash(venv/bin/python -c \"from google import genai; print\\('google-genai OK'\\)\")",
+      "Bash(venv/bin/python -c \"import llm; print\\('llm OK'\\)\")",
+      "Bash(venv/bin/python -c \"import llm; import bot; import userbot; print\\('Hamma import OK'\\)\")",
+      "Bash(venv/bin/python -c ' *)",
+      "Bash(venv/bin/python -c \"import llm; import userbot; print\\('OK'\\)\")",
+      "Bash(pkill -f \"python.*main.py\")",
+      "Bash(fuser -k 8080/tcp)",
+      "Bash(lsof -ti:8080)",
+      "Bash(xargs kill -9)",
+      "Bash(venv/bin/python -c \"import outreach; import bot; print\\('OK'\\)\")",
+      "Bash(venv/bin/python -c \"import bot; print\\('OK'\\)\")",
+      "Bash(venv/bin/python -c \"import bot; import outreach; print\\('OK'\\)\")",
+      "Bash(venv/bin/python -c \"import userbot; print\\('OK'\\)\")",
+      "Bash(pkill -f \"python main.py\")",
+      "Bash(pkill -f \"main.py\")",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

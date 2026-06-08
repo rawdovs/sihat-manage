@@ -77,8 +77,17 @@ async def github_handler(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
+async def health_handler(request: web.Request) -> web.Response:
+    import userbot
+    return web.json_response({
+        "status": "ok",
+        "userbot": userbot.is_running(),
+    })
+
+
 def make_app() -> web.Application:
     app = web.Application()
     app.router.add_post("/github", github_handler)
-    app.router.add_get("/", lambda r: web.Response(text="assistant alive"))
+    app.router.add_get("/", lambda r: web.Response(text="ok"))
+    app.router.add_get("/api/health", health_handler)
     return app

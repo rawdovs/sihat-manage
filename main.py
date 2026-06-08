@@ -2,6 +2,7 @@
 import asyncio
 import logging
 
+import aiohttp
 from aiohttp import web
 
 import config
@@ -29,6 +30,22 @@ async def _start_webhook():
     return runner
 
 
+async def _keep_alive():
+    """Render free tier ni uxlatmaslik uchun har 10 daqiqada o'ziga ping."""
+    import os
+    url = os.getenv("RENDER_EXTERNAL_URL", "")
+    if not url:
+        return
+    await asyncio.sleep(60)
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                await session.get(url, timeout=aiohttp.ClientTimeout(total=10))
+            except Exception:
+                pass
+            await asyncio.sleep(600)
+
+
 async def main():
     db.init()
     log.info("Baza tayyor: %s", config.DB_PATH)
@@ -43,7 +60,7 @@ async def main():
     # Userbot (ixtiyoriy — TELEGRAM_API_ID/HASH bo'lsa ishga tushadi)
     await userbot.init()
 
-    tasks = [dp.start_polling(bot)]
+    tasks = [dp.start_polling(bot), _keep_alive()]
     if userbot.is_running():
         tasks.append(userbot._client.run_until_disconnected())
 

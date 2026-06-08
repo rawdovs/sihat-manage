@@ -203,28 +203,15 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
     hist = _history[sender_id]
     is_new_session = len(hist) == 0
 
-    # Birinchi xabar — greeting yuboriladi, LLM chaqirilmaydi
+    # Birinchi xabar — oddiy salom, LLM chaqirilmaydi
     if is_new_session:
-        greeting = "Assalomu alaykum!"
-        services = (
-            "Bizneslar uchun Telegram botlar ishlab chiqaman.\n\n"
-            "Nima qilsa bo'ladi:\n"
-            "- Buyurtma va delivery boti\n"
-            "- Online navbat va rezerv tizimi\n"
-            "- Mijozlarga mass xabar yuborish\n"
-            "- To'lov qabul qilish boti\n"
-            "- Mini App (to'liq ilova Telegram ichida)\n"
-            "- Har qanday murakkablikdagi maxsus bot\n\n"
-            "Qanday loyiha qiziqtiradi?"
-        )
-        await _client.send_message(sender_id, greeting)
-        await asyncio.sleep(1)
-        await _client.send_message(sender_id, services)
+        reply = "Assalomu alaykum! Labbay, nima xizmat?"
+        await asyncio.sleep(random.uniform(1.5, 3.0))
+        await _client.send_message(sender_id, reply)
 
         hist.append({"role": "user", "content": text})
-        hist.append({"role": "assistant", "content": greeting + "\n\n" + services})
+        hist.append({"role": "assistant", "content": reply})
 
-        # Faqat haqiqatan yangi mijoz bo'lsa xabar yuboriladi
         if is_brand_new:
             uname_str = f"@{username}" if username else f"ID: {sender_id}"
             await _notify_developer(

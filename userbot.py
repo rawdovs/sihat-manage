@@ -70,30 +70,43 @@ async def _notify_developer(text: str, silent: bool = False, **kwargs) -> None:
 
 # ─── Init ────────────────────────────────────────────────────────────────────
 
-async def init() -> None:
+async def _connect_client() -> bool:
+    """Clientni ulab, authorized ekanini tekshiradi. True = muvaffaqiyatli."""
     global _client, _startup_ts
+    try:
+        if _client and _client.is_connected():
+            return True
+        if _client:
+            await _client.disconnect()
+
+        session_val = config.USERBOT_SESSION
+        session = StringSession(session_val) if len(session_val) > 50 else session_val
+        _client = TelegramClient(session, config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH)
+
+        await _client.connect()
+        if not await _client.is_user_authorized():
+            log.error("Userbot session yaroqsiz. USERBOT_SESSION ni yangilang.")
+            _client = None
+            return False
+        me = await _client.get_me()
+        _startup_ts = time.time()
+        log.info("Userbot ulandi: @%s (id=%s)", me.username, me.id)
+        return True
+    except Exception as e:
+        log.error("Userbot ulanishda xato: %s", e)
+        _client = None
+        return False
+
+
+async def init() -> None:
+    global _client
     if not config.TELEGRAM_API_ID or not config.TELEGRAM_API_HASH:
         log.warning("TELEGRAM_API_ID yoki TELEGRAM_API_HASH yo'q — userbot o'chirilgan.")
         return
 
-    # StringSession bo'lsa — env dan, bo'lmasa — fayl session
-    session = (StringSession(config.USERBOT_SESSION)
-               if len(config.USERBOT_SESSION) > 50
-               else config.USERBOT_SESSION)
-    _client = TelegramClient(
-        session,
-        config.TELEGRAM_API_ID,
-        config.TELEGRAM_API_HASH,
-    )
-
-    await _client.connect()
-    if not await _client.is_user_authorized():
-        log.error("Userbot session yaroqsiz yoki muddati o'tgan. USERBOT_SESSION ni yangilang.")
-        _client = None
+    ok = await _connect_client()
+    if not ok:
         return
-    me = await _client.get_me()
-    _startup_ts = time.time()
-    log.info("Userbot ulandi: @%s (id=%s)", me.username, me.id)
 
     @_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
     async def on_incoming(event):
@@ -427,7 +440,10 @@ async def add_to_hamkorlar(client_id: int) -> None:
 
 async def start_conversation(identifier: str, first_message: str = None) -> str:
     if not _client or not _client.is_connected():
-        return "Userbot ulanmagan. Botni qayta ishga tushiring."
+        log.warning("Userbot uzilgan, qayta ulanmoqda...")
+        ok = await _connect_client()
+        if not ok:
+            return "Userbot ulanmadi. USERBOT_SESSION ni tekshiring."
     try:
         entity = await _client.get_entity(identifier)
         chat_id: int = entity.id
@@ -455,6 +471,8 @@ async def start_conversation(identifier: str, first_message: str = None) -> str:
 
 
 async def send_via_userbot(client_chat: int, text: str) -> None:
+    if not _client or not _client.is_connected():
+        await _connect_client()
     if _client and _client.is_connected():
         await _client.send_message(client_chat, text)
         _history[client_chat].append({"role": "assistant", "content": text})

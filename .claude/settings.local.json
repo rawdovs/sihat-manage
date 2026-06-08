@@ -19,7 +19,10 @@
       "Bash(pkill -f \"python main.py\")",
       "Bash(pkill -f \"main.py\")",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(git stash *)"
     ]
   }
 }

@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 from typing import Optional
 
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.tl.types import User
 
 import config
@@ -75,8 +76,12 @@ async def init() -> None:
         log.warning("TELEGRAM_API_ID yoki TELEGRAM_API_HASH yo'q — userbot o'chirilgan.")
         return
 
+    # StringSession bo'lsa — env dan, bo'lmasa — fayl session
+    session = (StringSession(config.USERBOT_SESSION)
+               if len(config.USERBOT_SESSION) > 50
+               else config.USERBOT_SESSION)
     _client = TelegramClient(
-        config.USERBOT_SESSION,
+        session,
         config.TELEGRAM_API_ID,
         config.TELEGRAM_API_HASH,
     )

@@ -4,20 +4,23 @@ import database as db
 
 def create_project(action: dict, client_chat=None, client_label=None) -> str:
     name = action.get("project_name", "Nomsiz loyiha")
-    price = action.get("price_usd", 0)
+    # price_uzs (so'mda) yoki eski price_usd ni qabul qiladi
+    price = action.get("price_uzs") or action.get("price_usd", 0)
     days = action.get("duration_days", 0)
     tasks = action.get("tasks", [])
     pid = db.create_project(
         name=name, price_usd=price, duration_days=days, tasks=tasks,
         client_chat=client_chat, client_label=client_label,
     )
-    advance = round(float(price) * db.config.ADVANCE_PERCENT / 100, 2)
+    advance = round(float(price) * db.config.ADVANCE_PERCENT / 100, 0)
     task_lines = "\n".join(f"   • {t}" for t in tasks) or "   • —"
+    price_fmt = f"{int(price):,}".replace(",", " ")
+    advance_fmt = f"{int(advance):,}".replace(",", " ")
     return (
         f"✅ Yangi loyiha yaratildi (#{pid})\n"
         f"📁 {name}\n"
-        f"💵 Narx: ${price}  |  ⏳ Muddat: {days} kun\n"
-        f"💰 Avans ({db.config.ADVANCE_PERCENT}%): ${advance}\n"
+        f"💵 Narx: {price_fmt} so'm  |  ⏳ Muddat: {days} kun\n"
+        f"💰 Avans ({db.config.ADVANCE_PERCENT}%): {advance_fmt} so'm\n"
         f"📋 Vazifalar:\n{task_lines}"
     )
 

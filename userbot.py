@@ -191,14 +191,19 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
     name = _get_name(sender)
     username = getattr(sender, "username", None)
 
+    # Haqiqatan yangi mijozmi — DB ga yozishdan OLDIN tekshiramiz
+    is_brand_new = not db._conn.execute(
+        "SELECT 1 FROM userbot_chats WHERE chat_id=?", (sender_id,)
+    ).fetchone()
+
     db.upsert_userbot_chat(sender_id, name=name, username=username, last_message=text[:200])
-    db.resolve_follow_up(sender_id)  # Javob berdi → follow-up tugatiladi
+    db.resolve_follow_up(sender_id)
     log.info("Userbot <- %s (%s): %s", name, sender_id, text[:80])
 
     hist = _history[sender_id]
-    is_new_session = len(hist) == 0  # Tarix bo'sh = birinchi xabar (har restartda yangilanadi)
+    is_new_session = len(hist) == 0
 
-    # Birinchi xabar — tayyorlangan greeting yuboriladi, LLM chaqirilmaydi
+    # Birinchi xabar — greeting yuboriladi, LLM chaqirilmaydi
     if is_new_session:
         greeting = "Assalomu alaykum!"
         services = (
@@ -216,14 +221,15 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
         await asyncio.sleep(1)
         await _client.send_message(sender_id, services)
 
-        # Suhbat tarixiga qo'shamiz — AI keyingi xabarlarda kontekstni biladi
         hist.append({"role": "user", "content": text})
         hist.append({"role": "assistant", "content": greeting + "\n\n" + services})
 
-        uname_str = f"@{username}" if username else f"ID: {sender_id}"
-        await _notify_developer(
-            f"Yangi mijoz yozdi\n{name} ({uname_str})\n\"{text[:120]}\""
-        )
+        # Faqat haqiqatan yangi mijoz bo'lsa xabar yuboriladi
+        if is_brand_new:
+            uname_str = f"@{username}" if username else f"ID: {sender_id}"
+            await _notify_developer(
+                f"Yangi mijoz\n{name} ({uname_str})\n\"{text[:120]}\""
+            )
         return
 
     # Mavjud mijoz — AI javob beradi
@@ -286,7 +292,15 @@ async def _handle_action(action: dict, sender_id: int, name: str, visible: str) 
     elif kind == "CREATE_PROJECT":
         import actions as act
         summary = act.create_project(action, client_chat=sender_id, client_label=name)
-        await _notify_developer(f"Yangi loyiha kelishuvi!\n{summary}")
+        row = db._conn.execute(
+            "SELECT username FROM userbot_chats WHERE chat_id=?", (sender_id,)
+        ).fetchone()
+        uname_str = f"@{row['username']}" if row and row["username"] else str(sender_id)
+        await _notify_developer(
+            f"ZAKAZ OLINDI\n"
+            f"Mijoz: {name} ({uname_str})\n\n"
+            f"{summary}"
+        )
 
     elif kind == "UPDATE_PROGRESS":
         import actions as act

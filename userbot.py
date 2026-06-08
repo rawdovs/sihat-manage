@@ -86,7 +86,11 @@ async def init() -> None:
         config.TELEGRAM_API_HASH,
     )
 
-    await _client.start()
+    await _client.connect()
+    if not await _client.is_user_authorized():
+        log.error("Userbot session yaroqsiz yoki muddati o'tgan. USERBOT_SESSION ni yangilang.")
+        _client = None
+        return
     me = await _client.get_me()
     _startup_ts = time.time()
     log.info("Userbot ulandi: @%s (id=%s)", me.username, me.id)

@@ -17,6 +17,7 @@ import config
 import database as db
 import llm
 import outreach
+import reports
 import transcribe
 import userbot
 from core import bot, dp
@@ -199,6 +200,18 @@ async def on_projects(message: Message):
             f"  👤 Mijoz: {p['client_label'] or '—'}\n"
         )
     await message.answer("\n".join(lines))
+
+
+@dp.message(Command("report"))
+async def on_report(message: Message):
+    if not is_developer(message.chat.id):
+        return
+    await message.answer("Hisobot tayyorlanmoqda...")
+    try:
+        text = await reports.build_evening_summary()
+        await message.answer(text, parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"Xato: {e}")
 
 
 @dp.message(Command("leads"))

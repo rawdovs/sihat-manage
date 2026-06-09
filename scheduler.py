@@ -79,28 +79,29 @@ async def _outreach_job(label: str):
 
 
 def start():
-    _scheduler.add_job(_morning_job, CronTrigger(hour=config.MORNING_HOUR, minute=0),
-                       id="morning", replace_existing=True)
-    _scheduler.add_job(_evening_job, CronTrigger(hour=config.EVENING_HOUR, minute=0),
-                       id="evening", replace_existing=True)
-    _scheduler.add_job(_evening_summary_job, CronTrigger(hour=22, minute=0),
-                       id="evening_summary", replace_existing=True)
-    _scheduler.add_job(_follow_up_job, CronTrigger(hour=10, minute=30),
-                       id="follow_up", replace_existing=True)
-
-    # Avtomatik outreach: 10:00 va 17:00
-    _scheduler.add_job(
-        _outreach_morning, CronTrigger(hour=10, minute=0),
-        id="outreach_morning", replace_existing=True,
-    )
-    _scheduler.add_job(
-        _outreach_afternoon, CronTrigger(hour=17, minute=0),
-        id="outreach_afternoon", replace_existing=True,
-    )
+    # misfire_grace_time=300 — bot 5 daqiqagacha kechikib startlansa ham job bajariladi
+    _scheduler.add_job(_morning_job,
+                       CronTrigger(hour=config.MORNING_HOUR, minute=0, timezone=_TZ),
+                       id="morning", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_evening_job,
+                       CronTrigger(hour=config.EVENING_HOUR, minute=0, timezone=_TZ),
+                       id="evening", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_evening_summary_job,
+                       CronTrigger(hour=22, minute=0, timezone=_TZ),
+                       id="evening_summary", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_follow_up_job,
+                       CronTrigger(hour=10, minute=30, timezone=_TZ),
+                       id="follow_up", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_outreach_morning,
+                       CronTrigger(hour=10, minute=0, timezone=_TZ),
+                       id="outreach_morning", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_outreach_afternoon,
+                       CronTrigger(hour=17, minute=0, timezone=_TZ),
+                       id="outreach_afternoon", replace_existing=True, misfire_grace_time=300)
 
     _scheduler.start()
     log.info(
-        "Jadval: %02d:00 hisobot | 10:00+17:00 outreach | "
+        "Jadval (Toshkent): %02d:00 hisobot | 10:00+17:00 outreach | "
         "%02d:00 progress | 22:00 xulosa | 10:30 follow-up",
         config.MORNING_HOUR, config.EVENING_HOUR,
     )

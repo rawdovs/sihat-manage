@@ -1,6 +1,7 @@
 """APScheduler: 09:00 hisobot, 10:00/17:00 outreach, 21:00 progress, 22:00 xulosa."""
 import logging
 
+import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -10,7 +11,9 @@ from core import bot
 from prompts import EVENING_PROMPT
 
 log = logging.getLogger(__name__)
-_scheduler = AsyncIOScheduler(timezone=config.TIMEZONE)
+# pytz ishlatiladi — tizim tzdata ga bog'liq emas, Render da ham ishlaydi
+_TZ = pytz.timezone("Asia/Tashkent")
+_scheduler = AsyncIOScheduler(timezone=_TZ)
 
 
 async def _morning_job():

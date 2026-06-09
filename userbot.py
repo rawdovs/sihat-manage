@@ -191,11 +191,6 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
     name = _get_name(sender)
     username = getattr(sender, "username", None)
 
-    # Haqiqatan yangi mijozmi — DB ga yozishdan OLDIN tekshiramiz
-    is_brand_new = not db._conn.execute(
-        "SELECT 1 FROM userbot_chats WHERE chat_id=?", (sender_id,)
-    ).fetchone()
-
     db.upsert_userbot_chat(sender_id, name=name, username=username, last_message=text[:200])
     db.resolve_follow_up(sender_id)
     log.info("Userbot <- %s (%s): %s", name, sender_id, text[:80])
@@ -255,21 +250,7 @@ async def _handle_action(action: dict, sender_id: int, name: str, visible: str) 
         _history[sender_id].clear()
         db.upsert_userbot_chat(sender_id, status="rejected")
         db.resolve_follow_up(sender_id)
-        row = db._conn.execute(
-            "SELECT username FROM userbot_chats WHERE chat_id=?", (sender_id,)
-        ).fetchone()
-        uname_str = f"@{row['username']}" if row and row["username"] else str(sender_id)
-        await _notify_developer(
-            f"Mijoz rad etdi\n{name} ({uname_str})\nSuhbat tarixi tozalandi."
-        )
-        log.info("Mijoz rad etdi, tarix tozalandi: %s", sender_id)
-
-    elif kind == "REQUEST_PAYMENT":
-        amount = action.get("amount", "")
-        project = action.get("project_name", "")
-        await _notify_developer(
-            f"To'lov kelishildi\n{name} — ${amount} ({project})\n\nKartani yuborish uchun /pay {sender_id} yozing"
-        )
+        log.info("Mijoz rad etdi, tarix tozalandi: %s (%s)", name, sender_id)
 
     elif kind == "CREATE_PROJECT":
         import actions as act
@@ -286,33 +267,14 @@ async def _handle_action(action: dict, sender_id: int, name: str, visible: str) 
 
     elif kind == "UPDATE_PROGRESS":
         import actions as act
-        summary = act.update_progress(action, source="userbot")
-        await _notify_developer(f"{summary}", silent=True)
+        act.update_progress(action, source="userbot")
 
     elif kind == "ESCALATE":
-        reason = action.get("reason", "—")
-        urgency = action.get("urgency", "medium")
-        icon = "🔴" if urgency == "high" else "🟡"
         db.upsert_userbot_chat(sender_id, status="escalated")
-        row = db._conn.execute(
-            "SELECT username FROM userbot_chats WHERE chat_id=?", (sender_id,)
-        ).fetchone()
-        uname_str = f"@{row['username']}" if row and row["username"] else str(sender_id)
-        # Suhbatdan qisqacha kontekst (oxirgi 4 xabar)
-        hist_snapshot = list(_history[sender_id])[-4:]
-        ctx_lines = []
-        for m in hist_snapshot:
-            role = "Mijoz" if m["role"] == "user" else "Sen"
-            ctx_lines.append(f"{role}: {m['content'][:120]}")
-        ctx_block = "\n".join(ctx_lines) if ctx_lines else "—"
-        is_closing = "zakaz_olinayotgan" in reason
-        header = "ZAKAZ OLINMOQDA" if is_closing else "ESKALATSIYA"
-        await _notify_developer(
-            f"{icon} {header}\n"
-            f"Mijoz: {name} ({uname_str})\n\n"
-            f"Ma'lumot: {reason}\n\n"
-            f"Oxirgi suhbat:\n{ctx_block}"
-        )
+        log.info("Eskalatsiya: %s (%s) — %s", name, sender_id, action.get("reason", "—"))
+
+    elif kind == "REQUEST_PAYMENT":
+        log.info("To'lov kelishildi: %s (%s)", name, sender_id)
 
 
 async def _request_approval(sender_id: int, name: str, visible: str) -> None:
@@ -460,7 +422,7 @@ async def start_conversation(identifier: str, first_message: str = None) -> str:
 
         uname_str = f"@{username}" if username else identifier
         log.info("Userbot -> yangi kontakt %s (%s)", name, uname_str)
-        return f"✅ {name} ({uname_str}) ga xabar yuborildi.\nJavob kelganda sizga bildiraman."
+        return f"✅ {name} ({uname_str}) ga xabar yuborildi."
     except Exception as e:
         log.exception("start_conversation xatosi")
         return f"❌ Xabar yuborishda xato: {e}"

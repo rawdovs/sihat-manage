@@ -5,3 +5,4 @@ aiohttp>=3.9
 python-dotenv>=1.0
 openai>=1.40          # ixtiyoriy: ovozli xabar (Whisper) uchun
 telethon>=1.36        # userbot: dasturchining akkauntidan yozish uchun
+tzdata>=2024.1        # zoneinfo uchun timezone ma'lumotlari (Linux/Render)

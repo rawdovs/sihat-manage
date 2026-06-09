@@ -396,6 +396,27 @@ async def add_to_hamkorlar(client_id: int) -> None:
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
+async def _resolve_entity(identifier: str):
+    """Identifier (@username yoki +telefon) bo'yicha Telegram entity qaytaradi.
+    Telefon raqam kontaktlarda bo'lmasa, ImportContactsRequest orqali topadi.
+    """
+    try:
+        return await _client.get_entity(identifier)
+    except (ValueError, Exception) as first_err:
+        if not identifier.startswith('+'):
+            raise
+
+        from telethon.tl.functions.contacts import ImportContactsRequest
+        from telethon.tl.types import InputPhoneContact
+
+        result = await _client(ImportContactsRequest([
+            InputPhoneContact(client_id=0, phone=identifier, first_name="Temp", last_name="")
+        ]))
+        if result.users:
+            return result.users[0]
+        raise first_err
+
+
 async def start_conversation(identifier: str, first_message: str = None) -> str:
     if not _client or not _client.is_connected():
         log.warning("Userbot uzilgan, qayta ulanmoqda...")
@@ -403,7 +424,7 @@ async def start_conversation(identifier: str, first_message: str = None) -> str:
         if not ok:
             return "Userbot ulanmadi. USERBOT_SESSION ni tekshiring."
     try:
-        entity = await _client.get_entity(identifier)
+        entity = await _resolve_entity(identifier)
         chat_id: int = entity.id
         name = _get_name(entity)
         username = getattr(entity, "username", None)
@@ -425,6 +446,8 @@ async def start_conversation(identifier: str, first_message: str = None) -> str:
         return f"✅ {name} ({uname_str}) ga xabar yuborildi."
     except Exception as e:
         log.exception("start_conversation xatosi")
+        if "Cannot find any entity" in str(e):
+            return f"❌ {identifier} — Telegram akkaunt topilmadi (ro'yxatdan o'tmagan bo'lishi mumkin)."
         return f"❌ Xabar yuborishda xato: {e}"
 
 

@@ -30,7 +30,9 @@
       "Bash(python3 -m py_compile userbot.py bot.py)",
       "Bash(python3 -m py_compile main.py)",
       "Bash(python3 -m py_compile webhook.py)",
-      "Bash(python3 -m py_compile prompts.py actions.py)"
+      "Bash(python3 -m py_compile prompts.py actions.py)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

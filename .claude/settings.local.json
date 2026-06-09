@@ -32,7 +32,8 @@
       "Bash(python3 -m py_compile webhook.py)",
       "Bash(python3 -m py_compile prompts.py actions.py)",
       "Bash(python -c ' *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('prompts.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

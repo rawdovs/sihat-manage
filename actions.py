@@ -18,9 +18,13 @@ def create_project(action: dict, client_chat=None, client_label=None) -> str:
     advance_fmt = f"{int(advance):,}".replace(",", " ")
     return (
         f"✅ Yangi loyiha yaratildi (#{pid})\n"
-        f"📁 {name}\n"
-        f"💵 Narx: {price_fmt} so'm  |  ⏳ Muddat: {days} kun\n"
+        f"\n"
+        f"📁 Loyiha: {name}\n"
+        f"👤 Mijoz: {client_label or '—'}\n"
+        f"💵 Narx: {price_fmt} so'm\n"
         f"💰 Avans ({db.config.ADVANCE_PERCENT}%): {advance_fmt} so'm\n"
+        f"⏳ Muddat: {days} kun\n"
+        f"\n"
         f"📋 Vazifalar:\n{task_lines}"
     )
 

@@ -112,8 +112,23 @@ async def build_morning_report() -> str:
     )
 
 
+def _leads_block() -> str:
+    s = db.get_leads_stats_today()
+    if s["sent"] == 0:
+        return "• Bugun outreach yuborilmadi."
+    rate = f"{round(s['replied'] / s['sent'] * 100)}%" if s["sent"] else "—"
+    lines = [
+        f"• Yuborildi: {s['sent']} ta",
+        f"• Javob berdi: {s['replied']} ta ({rate})",
+        f"• Javob bermadi: {s['no_reply']} ta",
+    ]
+    if s["failed"]:
+        lines.append(f"• Xato (akkaunt yo'q): {s['failed']} ta")
+    return "\n".join(lines)
+
+
 async def build_evening_summary() -> str:
-    """Kechki suhbat xulosasi — bugun nima bo'ldi."""
+    """Kechki xulosa — bugun nima bo'ldi: mijozlar + outreach."""
     stats = db.userbot_stats_today()
     projs = [dict(p) for p in db.active_projects()]
     data = {"client_stats": stats, "projects": projs}
@@ -123,4 +138,10 @@ async def build_evening_summary() -> str:
         )
     except Exception as e:
         summary = f"(Xulosa yaratilmadi: {e})"
-    return f"🌙 *Kechki xulosa*\n\n{summary.strip()}"
+
+    leads_section = _leads_block()
+    return (
+        f"🌙 *Kechki xulosa*\n\n"
+        f"{summary.strip()}\n\n"
+        f"📤 *Outreach bugun:*\n{leads_section}"
+    )

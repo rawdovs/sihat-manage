@@ -201,6 +201,32 @@ async def on_projects(message: Message):
     await message.answer("\n".join(lines))
 
 
+@dp.message(Command("leads"))
+async def on_leads(message: Message):
+    if not is_developer(message.chat.id):
+        return
+    import database as db_mod
+    stats = db_mod.get_leads_stats_today()
+    total_new = db_mod.count_new_leads()
+    lines = [
+        "<b>LEADS HOLATI</b>\n",
+        f"Navbatda: {total_new} ta yangi lead\n",
+        "<b>Bugun:</b>",
+        f"  Yuborildi: {stats['sent']} ta",
+        f"  Javob berdi: {stats['replied']} ta",
+        f"  Javob bermadi: {stats['no_reply']} ta",
+    ]
+    if stats["failed"]:
+        lines.append(f"  Xato: {stats['failed']} ta")
+    lines += [
+        "",
+        "Keyingi outreach: 10:00 va 17:00",
+    ]
+    if not config.TWOGIS_API_KEY:
+        lines.append("\nTWOGIS_API_KEY sozlanmagan — .env ga qo'shing")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
 @dp.message(Command("help"))
 async def on_help(message: Message):
     if not is_developer(message.chat.id):
@@ -210,6 +236,7 @@ async def on_help(message: Message):
         "/status — tizim holati\n"
         "/clients — mijozlar ro'yxati\n"
         "/projects — loyihalar ro'yxati\n"
+        "/leads — outreach statistikasi\n"
         "/help — shu ro'yxat\n\n"
         "📤 MIJOZGA YOZISH:\n"
         "@username yoki +998XXXXXXXXX yuboring\n\n"

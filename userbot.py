@@ -193,6 +193,7 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
 
     db.upsert_userbot_chat(sender_id, name=name, username=username, last_message=text[:200])
     db.resolve_follow_up(sender_id)
+    db.mark_lead_replied_by_chat_id(sender_id)
     log.info("Userbot <- %s (%s): %s", name, sender_id, text[:80])
 
     hist = _history[sender_id]
@@ -417,12 +418,16 @@ async def _resolve_entity(identifier: str):
         raise first_err
 
 
-async def start_conversation(identifier: str, first_message: str = None) -> str:
+async def start_conversation(identifier: str, first_message: str = None) -> tuple[str, int | None]:
+    """Yangi kontaktga birinchi xabar yuboradi.
+
+    Qaytaradi: (natija_matni, telegram_chat_id)
+    """
     if not _client or not _client.is_connected():
         log.warning("Userbot uzilgan, qayta ulanmoqda...")
         ok = await _connect_client()
         if not ok:
-            return "Userbot ulanmadi. USERBOT_SESSION ni tekshiring."
+            return "Userbot ulanmadi. USERBOT_SESSION ni tekshiring.", None
     try:
         entity = await _resolve_entity(identifier)
         chat_id: int = entity.id
@@ -443,12 +448,12 @@ async def start_conversation(identifier: str, first_message: str = None) -> str:
 
         uname_str = f"@{username}" if username else identifier
         log.info("Userbot -> yangi kontakt %s (%s)", name, uname_str)
-        return f"✅ {name} ({uname_str}) ga xabar yuborildi."
+        return f"✅ {name} ({uname_str}) ga xabar yuborildi.", chat_id
     except Exception as e:
         log.exception("start_conversation xatosi")
         if "Cannot find any entity" in str(e):
-            return f"❌ {identifier} — Telegram akkaunt topilmadi (ro'yxatdan o'tmagan bo'lishi mumkin)."
-        return f"❌ Xabar yuborishda xato: {e}"
+            return f"❌ {identifier} — Telegram akkaunt topilmadi.", None
+        return f"❌ Xabar yuborishda xato: {e}", None
 
 
 async def send_via_userbot(client_chat: int, text: str) -> None:

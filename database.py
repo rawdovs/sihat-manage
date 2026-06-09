@@ -91,6 +91,19 @@ def init() -> None:
             status       TEXT NOT NULL DEFAULT 'active',
             created_at   TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS leads (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            name             TEXT NOT NULL,
+            phone            TEXT UNIQUE NOT NULL,
+            category         TEXT,
+            city             TEXT,
+            address          TEXT,
+            status           TEXT NOT NULL DEFAULT 'new',
+            telegram_chat_id INTEGER,
+            sent_at          TEXT,
+            created_at       TEXT NOT NULL
+        );
         """
     )
     _conn.commit()
@@ -343,3 +356,83 @@ def increment_follow_up(follow_up_id: int) -> int:
         _conn.execute("UPDATE follow_ups SET status='max_attempts' WHERE id=?", (follow_up_id,))
     _conn.commit()
     return new_attempts
+
+
+# ---------------- Leads ----------------
+
+def add_lead(name: str, phone: str, category: str = None,
+             city: str = None, address: str = None) -> bool:
+    """Yangi lead qo'shadi. Telefon allaqachon mavjud bo'lsa False qaytaradi."""
+    try:
+        _conn.execute(
+            "INSERT INTO leads(name, phone, category, city, address, created_at) "
+            "VALUES(?,?,?,?,?,?)",
+            (name, phone, category, city, address, _now()),
+        )
+        _conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+
+def count_new_leads() -> int:
+    return _conn.execute(
+        "SELECT COUNT(*) c FROM leads WHERE status='new'"
+    ).fetchone()["c"]
+
+
+def get_new_leads(limit: int) -> list:
+    return _conn.execute(
+        "SELECT * FROM leads WHERE status='new' ORDER BY id LIMIT ?", (limit,)
+    ).fetchall()
+
+
+def mark_lead_sent(lead_id: int, telegram_chat_id: int = None) -> None:
+    _conn.execute(
+        "UPDATE leads SET status='sent', telegram_chat_id=?, sent_at=? WHERE id=?",
+        (telegram_chat_id, _now(), lead_id),
+    )
+    _conn.commit()
+
+
+def mark_lead_failed(lead_id: int) -> None:
+    _conn.execute(
+        "UPDATE leads SET status='failed', sent_at=? WHERE id=?",
+        (_now(), lead_id),
+    )
+    _conn.commit()
+
+
+def mark_lead_replied_by_chat_id(chat_id: int) -> None:
+    """Mijoz javob berganda uning lead statusini 'replied' ga o'tkazadi."""
+    _conn.execute(
+        "UPDATE leads SET status='replied' "
+        "WHERE telegram_chat_id=? AND status='sent'",
+        (chat_id,),
+    )
+    _conn.commit()
+
+
+def get_leads_stats_today() -> dict:
+    today = _now()[:10]
+    sent = _conn.execute(
+        "SELECT COUNT(*) c FROM leads "
+        "WHERE status IN ('sent','replied') AND sent_at LIKE ?",
+        (f"{today}%",),
+    ).fetchone()["c"]
+    replied = _conn.execute(
+        "SELECT COUNT(*) c FROM leads "
+        "WHERE status='replied' AND sent_at LIKE ?",
+        (f"{today}%",),
+    ).fetchone()["c"]
+    failed = _conn.execute(
+        "SELECT COUNT(*) c FROM leads "
+        "WHERE status='failed' AND sent_at LIKE ?",
+        (f"{today}%",),
+    ).fetchone()["c"]
+    return {
+        "sent": sent,
+        "replied": replied,
+        "no_reply": sent - replied,
+        "failed": failed,
+    }

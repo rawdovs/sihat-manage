@@ -1,0 +1,255 @@
+"""2GIS dan Uzbekiston bizneslari scraping, lead navbati va avtomatik outreach."""
+import asyncio
+import logging
+import random
+import re
+
+import aiohttp
+
+import config
+import database as db
+
+log = logging.getLogger(__name__)
+
+# ─── Kategoriyalar va shaharlar ───────────────────────────────────────────────
+
+CATEGORIES = [
+    "klinika", "stomatologiya", "restoran", "kafe",
+    "dorixona", "go'zallik salon", "fitness markaz",
+    "ta'lim markaz", "mehmonxona", "optika", "bolalar bog'chasi",
+    "yuridik xizmatlar", "bank", "sug'urta", "avtomobil servisi",
+]
+
+CITIES = [
+    "Toshkent", "Samarqand", "Buxoro", "Namangan",
+    "Andijon", "Farg'ona", "Qarshi", "Nukus",
+    "Jizzax", "Termiz", "Guliston", "Navoiy",
+    "Chirchiq", "Olmaliq", "Bekobod",
+]
+
+
+# ─── Moslashtirilgan xabarlar ─────────────────────────────────────────────────
+
+def outreach_message(name: str, category: str) -> str:
+    """Kategoriyaga qarab moslashtirilgan birinchi xabar."""
+    cat = (category or "").lower()
+
+    if any(k in cat for k in ["klinika", "shifokor", "tibbiy", "poliklinika"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Klinikalar uchun Telegram bot qilamiz — bemorlar telefon qilmasdan navbat oladi, "
+            f"eslatmalar avtomatik ketadi. Operator kerak emas.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["stomatolog", "dental", "tish"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Stomatologiya klinikalar uchun navbat boti qilamiz — "
+            f"bemorlar bot orqali vaqt tanlaydi, siz admin panelda barchasini ko'rasiz.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["restoran", "oshxona", "milliy taom"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Restoran uchun Telegram bot qilamiz — mijozlar menyudan tanlab buyurtma beradi, "
+            f"siz darhol xabar olasiz. Telefon operator kerak emas.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["kafe", "coffee", "qahva", "tea"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Kafe uchun pre-order bot qilamiz — mijozlar kelishdan oldin buyurtma beradi, "
+            f"navbat bo'lmaydi. Savdo 20-30% oshadi.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["dorixona", "apteka", "farmatsiya"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Dorixona uchun Telegram bot qilamiz — mijozlar dori borligini so'raydi, "
+            f"buyurtma beradi, telefon band bo'lmaydi.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["go'zallik", "beauty", "sartarosh", "salon", "nail", "kosmetik"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Salon uchun navbat boti qilamiz — mijozlar bot orqali vaqt tanlaydi, "
+            f"sizga xabar keladi. Telefon kerak emas.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["fitness", "sport", "gym", "trening"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Sport markaz uchun bot qilamiz — a'zolik, dars jadvali, "
+            f"to'lov barchasi Telegram orqali. Admin yuki kamayadi.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["ta'lim", "kurs", "maktab", "o'quv", "repetitor"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"O'quv markaz uchun bot qilamiz — o'quvchilar ro'yxatga olindi, "
+            f"dars eslatmalari avtomatik boradi, to'lov nazorat qilinadi.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    if any(k in cat for k in ["mehmonxona", "hotel", "hostel"]):
+        return (
+            f"Assalomu alaykum, {name}!\n\n"
+            f"Mehmonxona uchun Telegram bot qilamiz — xona bron qilish, "
+            f"tasdiq va eslatmalar avtomatik. Telefon qo'ng'irog'i kamayadi.\n\n"
+            f"Qiziqsangiz, gaplashib ko'ramizmi?"
+        )
+    # Umumiy holat
+    return (
+        f"Assalomu alaykum, {name}!\n\n"
+        f"Biznesingiz uchun Telegram bot qilamiz — mijozlar bilan ishlash "
+        f"to'liq avtomatik bo'ladi, operatorsiz.\n\n"
+        f"Qiziqsangiz, gaplashib ko'ramizmi?"
+    )
+
+
+# ─── 2GIS scraper ─────────────────────────────────────────────────────────────
+
+def _normalize_phone(raw: str) -> str:
+    phone = re.sub(r'[\s\-\(\)]', '', raw.strip())
+    if not phone.startswith('+'):
+        if phone.startswith('998') or phone.startswith('7'):
+            phone = '+' + phone
+        elif len(phone) == 9:
+            phone = '+998' + phone
+    return phone
+
+
+def _extract_phone(item: dict) -> str:
+    for cg in item.get("contact_groups", []):
+        for c in cg.get("contacts", []):
+            if c.get("type") == "phone":
+                val = c.get("value", "").strip()
+                if val:
+                    return _normalize_phone(val)
+    return ""
+
+
+async def fetch_from_2gis(category: str, city: str, count: int = 20) -> list[dict]:
+    """2GIS API dan leads yuklaydi. TWOGIS_API_KEY kerak."""
+    if not config.TWOGIS_API_KEY:
+        log.warning("TWOGIS_API_KEY sozlanmagan — .env ga qo'shing")
+        return []
+
+    url = "https://catalog.api.2gis.com/3.0/items"
+    params = {
+        "q": f"{category} {city}",
+        "page_size": min(count, 50),
+        "fields": "items.contact_groups,items.address,items.name_ex",
+        "key": config.TWOGIS_API_KEY,
+        "type": "branch",
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, params=params, timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("2GIS %d (%s, %s)", resp.status, category, city)
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        log.warning("2GIS xatosi (%s, %s): %s", category, city, e)
+        return []
+
+    results = []
+    for item in data.get("result", {}).get("items", []):
+        name = item.get("name", "").strip()
+        phone = _extract_phone(item)
+        address = item.get("address_name", "")
+        if name and phone:
+            results.append({
+                "name": name,
+                "phone": phone,
+                "category": category,
+                "city": city,
+                "address": address,
+            })
+    log.info("2GIS (%s, %s): %d ta lead topildi", category, city, len(results))
+    return results
+
+
+async def replenish(target: int = 100) -> int:
+    """DB dagi yangi leadlar target dan kam bo'lsa, 2GIS dan to'ldiradi."""
+    current = db.count_new_leads()
+    if current >= target:
+        return 0
+
+    needed = target - current
+    added = 0
+
+    cats = CATEGORIES.copy()
+    cities = CITIES.copy()
+    random.shuffle(cats)
+    random.shuffle(cities)
+
+    for cat in cats:
+        if added >= needed:
+            break
+        for city in cities:
+            if added >= needed:
+                break
+            items = await fetch_from_2gis(cat, city, count=20)
+            for item in items:
+                if db.add_lead(**item):
+                    added += 1
+            await asyncio.sleep(1.5)
+
+    log.info("Lead to'ldirildi: +%d ta (jami yangi: %d)", added, db.count_new_leads())
+    return added
+
+
+# ─── Batch yuborish ───────────────────────────────────────────────────────────
+
+async def send_batch(limit: int = 10) -> tuple[int, int]:
+    """limit ta yangi leadga xabar yuboradi.
+
+    Qaytaradi: (yuborildi, xato)
+    Xabarlar orasida 2-5 daqiqa kutadi (flood himoyasi).
+    """
+    import userbot
+
+    if not userbot.is_running():
+        log.warning("Userbot ishlamayapti — outreach o'tkazildi")
+        return 0, 0
+
+    # Leadlar yetarli bo'lmasa avval to'ldiradi
+    if db.count_new_leads() < limit:
+        await replenish(target=max(limit * 3, 60))
+
+    leads = db.get_new_leads(limit)
+    if not leads:
+        log.info("Yangi lead yo'q")
+        return 0, 0
+
+    sent = 0
+    failed = 0
+
+    for i, lead in enumerate(leads):
+        phone = lead["phone"]
+        name = lead["name"]
+        category = lead["category"] or ""
+        message = outreach_message(name, category)
+
+        result, tg_chat_id = await userbot.start_conversation(phone, message)
+
+        if result.startswith("✅"):
+            db.mark_lead_sent(lead["id"], telegram_chat_id=tg_chat_id)
+            sent += 1
+            log.info("Lead [%d/%d] yuborildi: %s (%s)", i + 1, len(leads), name, phone)
+        else:
+            db.mark_lead_failed(lead["id"])
+            failed += 1
+            log.warning("Lead [%d/%d] xato: %s — %s", i + 1, len(leads), phone, result)
+
+        # Oxirgi xabardan keyin kutish shart emas
+        if i < len(leads) - 1:
+            delay = random.uniform(120, 300)  # 2–5 daqiqa
+            log.info("Keyingi leadga %.0fs kutilmoqda...", delay)
+            await asyncio.sleep(delay)
+
+    log.info("Batch yakunlandi: yuborildi=%d, xato=%d", sent, failed)
+    return sent, failed

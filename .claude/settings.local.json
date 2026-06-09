@@ -22,7 +22,15 @@
       "Bash(git add *)",
       "Bash(git pull *)",
       "Bash(git push *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git commit *)",
+      "Bash(python -m py_compile userbot.py)",
+      "Bash(python3 -m py_compile userbot.py)",
+      "Bash(python3 -m py_compile userbot.py prompts.py)",
+      "Bash(python3 -m py_compile userbot.py bot.py)",
+      "Bash(python3 -m py_compile main.py)",
+      "Bash(python3 -m py_compile webhook.py)",
+      "Bash(python3 -m py_compile prompts.py actions.py)"
     ]
   }
 }

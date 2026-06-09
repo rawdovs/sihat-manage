@@ -247,7 +247,6 @@ async def on_text(message: Message):
 async def _handle_text(message: Message, text: str):
     chat_id = message.chat.id
 
-    # Dasturchi @username yoki +telefon yuborganida — outreach savolnomasi
     if is_developer(chat_id):
         # Outreach jarayonida nom kiritish kutilayotgan bo'lsa
         if outreach.waiting_for_name(chat_id):
@@ -256,13 +255,20 @@ async def _handle_text(message: Message, text: str):
                 await message.answer(resp_text, reply_markup=kb, parse_mode="Markdown")
                 return
 
-        m = _CONTACT_RE.match(text.strip())
+        # Telefon raqamidagi bo'shliqlarni olib tashlab tekshirish
+        # "+998 90 996 04 56" → "+998909960456"
+        normalized = re.sub(r'(\+[\d ]{9,20})', lambda m: m.group(0).replace(' ', ''), text.strip())
+        m = _CONTACT_RE.match(normalized)
         if m:
             identifier = m.group(1)
             msg_text, kb = await outreach.start(identifier, chat_id)
             await message.answer(msg_text, reply_markup=kb, parse_mode="Markdown")
             return
 
+        # Dasturchi uchun AI javob bermaydi — faqat buyruqlar va outreach ishlaydi
+        return
+
+    # Mijoz yo'li — LLM
     try:
         visible, action = await _run_llm(chat_id, text)
     except Exception as e:

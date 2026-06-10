@@ -28,7 +28,7 @@ _CONTACT_RE = re.compile(r'^(@[\w]{5,}|\+\d{9,15})(\s+(.+))?$', re.DOTALL)
 log = logging.getLogger(__name__)
 
 # Har bir chat uchun oxirgi 20 ta xabar (kontekst uchun)
-_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=20))
+_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=10))
 
 
 def is_developer(chat_id: int) -> bool:

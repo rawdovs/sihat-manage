@@ -24,7 +24,7 @@ DEVELOPER_CHAT_ID = int(os.getenv("DEVELOPER_CHAT_ID", "0"))
 # --- Groq LLM ---
 GROQ_API_KEY = _req("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "600"))
 
 # --- Telegram Userbot (my.telegram.org dan olinadi) ---
 TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID") or "0")

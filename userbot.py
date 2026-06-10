@@ -17,7 +17,7 @@ import llm
 log = logging.getLogger(__name__)
 
 _client: Optional[TelegramClient] = None
-_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=40))
+_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=16))
 _chat_locks: dict[int, asyncio.Lock] = {}
 _error_cooldown: dict[int, float] = {}
 _dev_notify_times: deque = deque(maxlen=10)

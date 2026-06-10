@@ -128,10 +128,103 @@ def _extract_phone(item: dict) -> str:
     return ""
 
 
+# Shaharlar uchun taxminiy koordinatalar (lat_min, lon_min, lat_max, lon_max)
+_CITY_BBOX = {
+    "Toshkent":   (41.20, 69.10, 41.42, 69.45),
+    "Samarqand":  (39.58, 66.82, 39.75, 67.08),
+    "Buxoro":     (39.72, 64.36, 39.83, 64.52),
+    "Namangan":   (40.95, 71.55, 41.05, 71.75),
+    "Andijon":    (40.72, 72.28, 40.82, 72.42),
+    "Farg'ona":   (40.35, 71.70, 40.45, 71.85),
+    "Qarshi":     (38.83, 65.75, 38.93, 65.90),
+    "Nukus":      (42.43, 59.55, 42.53, 59.70),
+    "Jizzax":     (40.08, 67.78, 40.18, 67.95),
+    "Termiz":     (37.20, 67.22, 37.30, 67.38),
+    "Guliston":   (40.47, 68.74, 40.55, 68.85),
+    "Navoiy":     (40.07, 65.33, 40.17, 65.43),
+    "Chirchiq":   (41.44, 69.54, 41.52, 69.66),
+    "Olmaliq":    (40.83, 69.55, 40.92, 69.65),
+    "Bekobod":    (40.20, 69.20, 40.28, 69.30),
+}
+
+# OpenStreetMap amenity teglari
+_AMENITY_MAP = {
+    "klinika":          ["clinic", "hospital"],
+    "stomatologiya":    ["dentist"],
+    "restoran":         ["restaurant"],
+    "kafe":             ["cafe", "fast_food"],
+    "dorixona":         ["pharmacy"],
+    "go'zallik salon":  ["beauty", "hairdresser"],
+    "fitness markaz":   ["fitness_centre", "sports_centre"],
+    "ta'lim markaz":    ["school", "college", "language_school"],
+    "mehmonxona":       ["hotel", "hostel", "guest_house"],
+    "optika":           ["optician"],
+    "bolalar bog'chasi":["kindergarten"],
+    "bank":             ["bank"],
+    "avtomobil servisi":["car_repair", "car_wash"],
+}
+
+
+async def fetch_from_overpass(category: str, city: str, count: int = 20) -> list[dict]:
+    """OpenStreetMap Overpass API dan bepul leads yuklaydi. Kalit shart emas."""
+    bbox = _CITY_BBOX.get(city)
+    if not bbox:
+        return []
+    amenities = _AMENITY_MAP.get(category.lower(), [])
+    if not amenities:
+        return []
+
+    amenity_filter = "|".join(amenities)
+    lat_min, lon_min, lat_max, lon_max = bbox
+    bbox_str = f"{lat_min},{lon_min},{lat_max},{lon_max}"
+
+    query = f"""
+[out:json][timeout:25];
+(
+  node["amenity"~"^({amenity_filter})$"]["phone"]({bbox_str});
+  way["amenity"~"^({amenity_filter})$"]["phone"]({bbox_str});
+);
+out center {count * 2};
+"""
+    url = "https://overpass-api.de/api/interpreter"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, data={"data": query},
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Overpass %d (%s, %s)", resp.status, category, city)
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        log.warning("Overpass xatosi (%s, %s): %s", category, city, e)
+        return []
+
+    results = []
+    for el in data.get("elements", []):
+        tags = el.get("tags", {})
+        name = (tags.get("name") or tags.get("name:uz") or tags.get("name:ru") or "").strip()
+        phone = _normalize_phone(tags.get("phone", "").strip())
+        address = tags.get("addr:street", "") or tags.get("addr:full", "")
+        if name and phone and len(phone) >= 10:
+            results.append({
+                "name": name,
+                "phone": phone,
+                "category": category,
+                "city": city,
+                "address": address,
+            })
+        if len(results) >= count:
+            break
+
+    log.info("Overpass (%s, %s): %d ta lead topildi", category, city, len(results))
+    return results
+
+
 async def fetch_from_2gis(category: str, city: str, count: int = 20) -> list[dict]:
-    """2GIS API dan leads yuklaydi. TWOGIS_API_KEY kerak."""
+    """2GIS API dan leads yuklaydi (subscription bo'lsa telefon ham oladi)."""
     if not config.TWOGIS_API_KEY:
-        log.warning("TWOGIS_API_KEY sozlanmagan — .env ga qo'shing")
         return []
 
     url = "https://catalog.api.2gis.com/3.0/items"
@@ -148,7 +241,6 @@ async def fetch_from_2gis(category: str, city: str, count: int = 20) -> list[dic
                 url, params=params, timeout=aiohttp.ClientTimeout(total=15)
             ) as resp:
                 if resp.status != 200:
-                    log.warning("2GIS %d (%s, %s)", resp.status, category, city)
                     return []
                 data = await resp.json()
     except Exception as e:
@@ -172,6 +264,14 @@ async def fetch_from_2gis(category: str, city: str, count: int = 20) -> list[dic
     return results
 
 
+async def fetch_leads(category: str, city: str, count: int = 20) -> list[dict]:
+    """Eng yaxshi mavjud manbadan leads yuklaydi: avval Overpass, keyin 2GIS."""
+    results = await fetch_from_overpass(category, city, count)
+    if not results and config.TWOGIS_API_KEY:
+        results = await fetch_from_2gis(category, city, count)
+    return results
+
+
 async def replenish(target: int = 100) -> int:
     """DB dagi yangi leadlar target dan kam bo'lsa, 2GIS dan to'ldiradi."""
     current = db.count_new_leads()
@@ -192,7 +292,7 @@ async def replenish(target: int = 100) -> int:
         for city in cities:
             if added >= needed:
                 break
-            items = await fetch_from_2gis(cat, city, count=20)
+            items = await fetch_leads(cat, city, count=20)
             for item in items:
                 if db.add_lead(**item):
                     added += 1

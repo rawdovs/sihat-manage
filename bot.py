@@ -212,38 +212,13 @@ async def on_testleads(message: Message):
     if not config.TWOGIS_API_KEY:
         await message.answer("TWOGIS_API_KEY yo'q!")
         return
-    url = "https://catalog.api.2gis.com/3.0/items"
-    params = {
-        "q": "klinika Toshkent",
-        "page_size": 5,
-        "fields": "items.contact_groups,items.address",
-        "key": config.TWOGIS_API_KEY,
-        "type": "branch",
-    }
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                status = resp.status
-                data = await resp.json()
-        items = data.get("result", {}).get("items", [])
-        found = 0
-        phones = []
-        for item in items:
-            name = item.get("name", "?")
-            phone = leads_mod._extract_phone(item)
-            if phone:
-                found += 1
-                phones.append(f"  • {name}: {phone}")
-        lines = [
-            f"Status: {status}",
-            f"Jami natija: {len(items)} ta",
-            f"Telefon bor: {found} ta",
-        ]
-        if phones:
-            lines.append("Namunalar:\n" + "\n".join(phones[:3]))
-        else:
-            lines.append("Telefon topilmadi (subscription kerak bo'lishi mumkin)")
-            lines.append(f"Raw keys: {list(items[0].keys()) if items else 'natija yo`q'}")
+        results = await leads_mod.fetch_from_overpass("klinika", "Toshkent", count=5)
+        lines = [f"Overpass (OpenStreetMap) natija: {len(results)} ta lead"]
+        for r in results[:3]:
+            lines.append(f"  • {r['name']}: {r['phone']}")
+        if not results:
+            lines.append("Natija yo'q — Overpass bo'sh qaytdi")
         await message.answer("\n".join(lines))
     except Exception as e:
         await message.answer(f"Xato: {e}")

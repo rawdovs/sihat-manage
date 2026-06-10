@@ -202,6 +202,53 @@ async def on_projects(message: Message):
     await message.answer("\n".join(lines))
 
 
+@dp.message(Command("testleads"))
+async def on_testleads(message: Message):
+    if not is_developer(message.chat.id):
+        return
+    await message.answer("2GIS test boshlandi...")
+    import leads as leads_mod
+    import aiohttp
+    if not config.TWOGIS_API_KEY:
+        await message.answer("TWOGIS_API_KEY yo'q!")
+        return
+    url = "https://catalog.api.2gis.com/3.0/items"
+    params = {
+        "q": "klinika Toshkent",
+        "page_size": 5,
+        "fields": "items.contact_groups,items.address",
+        "key": config.TWOGIS_API_KEY,
+        "type": "branch",
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                status = resp.status
+                data = await resp.json()
+        items = data.get("result", {}).get("items", [])
+        found = 0
+        phones = []
+        for item in items:
+            name = item.get("name", "?")
+            phone = leads_mod._extract_phone(item)
+            if phone:
+                found += 1
+                phones.append(f"  • {name}: {phone}")
+        lines = [
+            f"Status: {status}",
+            f"Jami natija: {len(items)} ta",
+            f"Telefon bor: {found} ta",
+        ]
+        if phones:
+            lines.append("Namunalar:\n" + "\n".join(phones[:3]))
+        else:
+            lines.append("Telefon topilmadi (subscription kerak bo'lishi mumkin)")
+            lines.append(f"Raw keys: {list(items[0].keys()) if items else 'natija yo`q'}")
+        await message.answer("\n".join(lines))
+    except Exception as e:
+        await message.answer(f"Xato: {e}")
+
+
 @dp.message(Command("report"))
 async def on_report(message: Message):
     if not is_developer(message.chat.id):

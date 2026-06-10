@@ -106,25 +106,50 @@ def outreach_message(name: str, category: str) -> str:
     )
 
 
-# ─── 2GIS scraper ─────────────────────────────────────────────────────────────
+# ─── Telefon yordamchi funksiyalar ───────────────────────────────────────────
+
+# Faqat O'zbek mobil prefikslar — landline (71,72...) va qisqa raqamlar istisno
+_UZ_MOBILE_PREFIXES = {"33", "55", "77", "88", "90", "91", "93", "94", "95", "97", "98", "99"}
+
 
 def _normalize_phone(raw: str) -> str:
     phone = re.sub(r'[\s\-\(\)]', '', raw.strip())
     if not phone.startswith('+'):
-        if phone.startswith('998') or phone.startswith('7'):
+        if phone.startswith('998'):
             phone = '+' + phone
         elif len(phone) == 9:
             phone = '+998' + phone
     return phone
 
 
+def _is_mobile_uz(phone: str) -> bool:
+    """Faqat O'zbek mobil raqamlarni o'tkazib beradi (+99890..., +99891... va h.k.)."""
+    return (
+        phone.startswith("+998")
+        and len(phone) == 13
+        and phone[4:6] in _UZ_MOBILE_PREFIXES
+    )
+
+
+def _extract_mobile_phone(raw: str) -> str:
+    """Semicolon bilan ajratilgan raqamlar orasidan birinchi mobil raqamni qaytaradi."""
+    for part in raw.split(";"):
+        phone = _normalize_phone(part.strip())
+        if _is_mobile_uz(phone):
+            return phone
+    return ""
+
+
 def _extract_phone(item: dict) -> str:
+    """2GIS contact_groups dan mobil raqam oladi."""
     for cg in item.get("contact_groups", []):
         for c in cg.get("contacts", []):
             if c.get("type") == "phone":
                 val = c.get("value", "").strip()
                 if val:
-                    return _normalize_phone(val)
+                    phone = _normalize_phone(val)
+                    if _is_mobile_uz(phone):
+                        return phone
     return ""
 
 
@@ -205,9 +230,9 @@ out center {count * 2};
     for el in data.get("elements", []):
         tags = el.get("tags", {})
         name = (tags.get("name") or tags.get("name:uz") or tags.get("name:ru") or "").strip()
-        phone = _normalize_phone(tags.get("phone", "").strip())
+        phone = _extract_mobile_phone(tags.get("phone", "") or tags.get("contact:phone", ""))
         address = tags.get("addr:street", "") or tags.get("addr:full", "")
-        if name and phone and len(phone) >= 10:
+        if name and phone:
             results.append({
                 "name": name,
                 "phone": phone,

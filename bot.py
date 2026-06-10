@@ -206,19 +206,20 @@ async def on_projects(message: Message):
 async def on_testleads(message: Message):
     if not is_developer(message.chat.id):
         return
-    await message.answer("2GIS test boshlandi...")
+    await message.answer("Overpass (OpenStreetMap) test boshlandi...")
     import leads as leads_mod
-    import aiohttp
-    if not config.TWOGIS_API_KEY:
-        await message.answer("TWOGIS_API_KEY yo'q!")
-        return
     try:
-        results = await leads_mod.fetch_from_overpass("klinika", "Toshkent", count=5)
-        lines = [f"Overpass (OpenStreetMap) natija: {len(results)} ta lead"]
-        for r in results[:3]:
-            lines.append(f"  • {r['name']}: {r['phone']}")
+        results = await leads_mod.fetch_from_overpass("klinika", "Toshkent", count=10)
         if not results:
-            lines.append("Natija yo'q — Overpass bo'sh qaytdi")
+            await message.answer(
+                "Natija yo'q — OSM da Toshkent klinikalari uchun mobil raqam topilmadi.\n"
+                "Boshqa kategoriyani sinab ko'ring yoki Overpass serveriga qayta urinib ko'ring."
+            )
+            return
+        lines = [f"Overpass natija: {len(results)} ta mobil raqamli lead\n"]
+        for r in results:
+            city_tag = f" ({r['city']})" if r.get("city") else ""
+            lines.append(f"• {r['name']}{city_tag}: {r['phone']}")
         await message.answer("\n".join(lines))
     except Exception as e:
         await message.answer(f"Xato: {e}")

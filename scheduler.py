@@ -55,9 +55,6 @@ async def _outreach_job(label: str):
     """Yangi leadlarga avtomatik xabar yuboradi (10:00 va 17:00)."""
     import leads as leads_mod
 
-    if not config.TWOGIS_API_KEY:
-        log.warning("TWOGIS_API_KEY yo'q — outreach ishlamaydi")
-        return
     if not config.DEVELOPER_CHAT_ID:
         return
 

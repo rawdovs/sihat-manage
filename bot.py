@@ -206,23 +206,43 @@ async def on_projects(message: Message):
 async def on_testleads(message: Message):
     if not is_developer(message.chat.id):
         return
-    await message.answer("Overpass (OpenStreetMap) test boshlandi...")
+    await message.answer("Overpass test — bir nechta kategoriya va shahar tekshirilmoqda...")
     import leads as leads_mod
-    try:
-        results = await leads_mod.fetch_from_overpass("klinika", "Toshkent", count=10)
-        if not results:
-            await message.answer(
-                "Natija yo'q — OSM da Toshkent klinikalari uchun mobil raqam topilmadi.\n"
-                "Boshqa kategoriyani sinab ko'ring yoki Overpass serveriga qayta urinib ko'ring."
-            )
-            return
-        lines = [f"Overpass natija: {len(results)} ta mobil raqamli lead\n"]
-        for r in results:
-            city_tag = f" ({r['city']})" if r.get("city") else ""
-            lines.append(f"• {r['name']}{city_tag}: {r['phone']}")
-        await message.answer("\n".join(lines))
-    except Exception as e:
-        await message.answer(f"Xato: {e}")
+
+    test_pairs = [
+        ("klinika", "Toshkent"),
+        ("stomatologiya", "Toshkent"),
+        ("restoran", "Toshkent"),
+        ("kafe", "Toshkent"),
+        ("dorixona", "Toshkent"),
+        ("klinika", "Samarqand"),
+        ("restoran", "Samarqand"),
+    ]
+
+    total = 0
+    lines = []
+    for cat, city in test_pairs:
+        try:
+            results = await leads_mod.fetch_from_overpass(cat, city, count=5)
+            if results:
+                lines.append(f"\n*{cat} / {city}* — {len(results)} ta:")
+                for r in results[:3]:
+                    lines.append(f"  • {r['name']}: {r['phone']}")
+                total += len(results)
+        except Exception:
+            pass
+
+    if total == 0:
+        await message.answer(
+            "Hech narsa topilmadi.\n"
+            "OSM da O'zbek bizneslari mobil raqam kam yozgan — bu normal.\n"
+            "Yechim: qo'lda lead qo'shish (/addlead) yoki Google Sheets import."
+        )
+    else:
+        await message.answer(
+            f"Jami {total} ta mobil raqamli lead topildi:\n" + "\n".join(lines),
+            parse_mode="Markdown"
+        )
 
 
 @dp.message(Command("report"))

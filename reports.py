@@ -112,36 +112,59 @@ async def build_morning_report() -> str:
     )
 
 
-def _leads_block() -> str:
-    s = db.get_leads_stats_today()
-    if s["sent"] == 0:
-        return "• Bugun outreach yuborilmadi."
-    rate = f"{round(s['replied'] / s['sent'] * 100)}%" if s["sent"] else "—"
-    lines = [
-        f"• Yuborildi: {s['sent']} ta",
-        f"• Javob berdi: {s['replied']} ta ({rate})",
-        f"• Javob bermadi: {s['no_reply']} ta",
-    ]
-    if s["failed"]:
-        lines.append(f"• Xato (akkaunt yo'q): {s['failed']} ta")
+_SESSION_CATS = {
+    "10:00": "Restoran, Kafe",
+    "13:00": "Klinika, Stomatologiya, Dorixona",
+    "17:00": "Go'zallik, Fitness, Optika",
+    "20:00": "Ta'lim, Mehmonxona, Bolalar bog'cha",
+}
+
+
+def _outreach_sessions_block() -> str:
+    sessions = db.get_leads_stats_by_sessions()
+    total_sent = sum(s["sent"] for s in sessions)
+    if total_sent == 0:
+        return "Bugun outreach yuborilmadi."
+
+    lines = []
+    for s in sessions:
+        if s["sent"] == 0:
+            continue
+        cats = _SESSION_CATS.get(s["label"], "")
+        lines.append(f"*{s['label']}* — {cats}")
+        lines.append(f"  {s['sent']} ta yozildi, {s['replied']} ta javob berdi")
     return "\n".join(lines)
 
 
-async def build_evening_summary() -> str:
-    """Kechki xulosa — bugun nima bo'ldi: mijozlar + outreach."""
-    stats = db.userbot_stats_today()
-    projs = [dict(p) for p in db.active_projects()]
-    data = {"client_stats": stats, "projects": projs}
-    try:
-        summary = await llm.ask_text(
-            EVENING_SUMMARY_PROMPT.format(data=json.dumps(data, ensure_ascii=False))
-        )
-    except Exception as e:
-        summary = f"(Xulosa yaratilmadi: {e})"
+def _today_work_block() -> str:
+    notes = db.get_today_notes()
+    projs = {p["name"]: p["progress"] for p in db.active_projects()}
 
-    leads_section = _leads_block()
+    if not notes and not projs:
+        return "• Bugun hech qanday progress yozilmadi."
+
+    lines = []
+    for n in notes:
+        proj = n["project_name"] or "Umumiy"
+        add = f" (+{n['progress_add']:g}%)" if n["progress_add"] else ""
+        lines.append(f"• {proj}{add}: {n['text']}")
+
+    if not lines:
+        for name, prog in projs.items():
+            lines.append(f"• {name}: {prog:g}% (progress o'zgarmadi)")
+
+    return "\n".join(lines) if lines else "• Bugun progress yozilmadi."
+
+
+async def build_evening_summary() -> str:
+    """Kechki xulosa — outreach sessiyalari + bugun nima qilindi."""
+    now_str = datetime.now(config.TIMEZONE).strftime("%d-%m-%Y")
+
+    outreach_block = _outreach_sessions_block()
+    work_block = _today_work_block()
+
     return (
-        f"🌙 *Kechki xulosa*\n\n"
-        f"{summary.strip()}\n\n"
-        f"📤 *Outreach bugun:*\n{leads_section}"
+        f"🌙 *Kechki xulosa — {now_str}*\n\n"
+        f"📤 *Outreach:*\n{outreach_block}\n\n"
+        f"📁 *Bugun nima qilindi:*\n{work_block}"
     )

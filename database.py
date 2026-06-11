@@ -458,3 +458,45 @@ def get_leads_stats_today() -> dict:
         "no_reply": sent - replied,
         "failed": failed,
     }
+
+
+def get_leads_stats_by_sessions() -> list[dict]:
+    """Har bir outreach sessiyasi uchun bugungi statistika."""
+    today = _now()[:10]
+    # (label, soat_dan, soat_gacha) — sent_at local vaqt asosida
+    sessions = [
+        ("10:00", 9,  12),
+        ("13:00", 12, 16),
+        ("17:00", 16, 19),
+        ("20:00", 19, 24),
+    ]
+    result = []
+    for label, h_start, h_end in sessions:
+        # sent_at = "2025-06-11T10:05:23+05:00" — substr(sent_at,12,2) = "10"
+        sent = _conn.execute(
+            "SELECT COUNT(*) c FROM leads "
+            "WHERE status IN ('sent','replied') AND sent_at LIKE ? "
+            "AND CAST(substr(sent_at,12,2) AS INTEGER) >= ? "
+            "AND CAST(substr(sent_at,12,2) AS INTEGER) < ?",
+            (f"{today}%", h_start, h_end),
+        ).fetchone()["c"]
+        replied = _conn.execute(
+            "SELECT COUNT(*) c FROM leads "
+            "WHERE status='replied' AND sent_at LIKE ? "
+            "AND CAST(substr(sent_at,12,2) AS INTEGER) >= ? "
+            "AND CAST(substr(sent_at,12,2) AS INTEGER) < ?",
+            (f"{today}%", h_start, h_end),
+        ).fetchone()["c"]
+        result.append({"label": label, "sent": sent, "replied": replied})
+    return result
+
+
+def get_today_notes() -> list:
+    """Bugun qo'shilgan barcha progress noteslar."""
+    today = _now()[:10]
+    return _conn.execute(
+        "SELECT n.text, n.progress_add, p.name as project_name "
+        "FROM notes n LEFT JOIN projects p ON n.project_id = p.id "
+        "WHERE n.created_at LIKE ? ORDER BY n.id",
+        (f"{today}%",),
+    ).fetchall()

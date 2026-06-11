@@ -43,23 +43,41 @@ async def _follow_up_job():
     await userbot.run_follow_ups()
 
 
-async def _outreach_morning():
+# Har bir seans o'z kategoriyalari bilan
+_OUTREACH_SESSIONS = {
+    "10:00": ["restoran", "kafe"],
+    "13:00": ["klinika", "stomatologiya", "dorixona"],
+    "17:00": ["go'zallik salon", "fitness markaz", "optika"],
+    "20:00": ["ta'lim markaz", "mehmonxona", "bolalar bog'chasi"],
+}
+
+
+async def _outreach_10():
     await _outreach_job("10:00")
 
 
-async def _outreach_afternoon():
+async def _outreach_13():
+    await _outreach_job("13:00")
+
+
+async def _outreach_17():
     await _outreach_job("17:00")
 
 
+async def _outreach_20():
+    await _outreach_job("20:00")
+
+
 async def _outreach_job(label: str):
-    """Yangi leadlarga avtomatik xabar yuboradi (10:00 va 17:00)."""
+    """Yangi leadlarga avtomatik xabar yuboradi (4 seans)."""
     import leads as leads_mod
 
     if not config.DEVELOPER_CHAT_ID:
         return
 
-    log.info("Outreach sessiyasi boshlandi (%s)", label)
-    sent, failed = await leads_mod.send_batch(limit=config.OUTREACH_DAILY)
+    categories = _OUTREACH_SESSIONS.get(label)
+    log.info("Outreach sessiyasi boshlandi (%s) — %s", label, categories)
+    sent, failed = await leads_mod.send_batch(limit=config.OUTREACH_DAILY, categories=categories)
 
     summary = (
         f"Outreach ({label}): {sent} ta yuborildi"
@@ -70,8 +88,7 @@ async def _outreach_job(label: str):
     if sent == 0 and failed == 0:
         await bot.send_message(
             config.DEVELOPER_CHAT_ID,
-            f"Outreach ({label}): Yangi lead yo'q. "
-            f"TWOGIS_API_KEY tekshiring yoki /leads bilan ko'ring.",
+            f"Outreach ({label}): Yangi lead yo'q — {', '.join(categories or [])}",
         )
 
 
@@ -89,16 +106,23 @@ def start():
     _scheduler.add_job(_follow_up_job,
                        CronTrigger(hour=10, minute=30, timezone=_TZ),
                        id="follow_up", replace_existing=True, misfire_grace_time=300)
-    _scheduler.add_job(_outreach_morning,
+    _scheduler.add_job(_outreach_10,
                        CronTrigger(hour=10, minute=0, timezone=_TZ),
-                       id="outreach_morning", replace_existing=True, misfire_grace_time=300)
-    _scheduler.add_job(_outreach_afternoon,
+                       id="outreach_10", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_outreach_13,
+                       CronTrigger(hour=13, minute=0, timezone=_TZ),
+                       id="outreach_13", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_outreach_17,
                        CronTrigger(hour=17, minute=0, timezone=_TZ),
-                       id="outreach_afternoon", replace_existing=True, misfire_grace_time=300)
+                       id="outreach_17", replace_existing=True, misfire_grace_time=300)
+    _scheduler.add_job(_outreach_20,
+                       CronTrigger(hour=20, minute=0, timezone=_TZ),
+                       id="outreach_20", replace_existing=True, misfire_grace_time=300)
 
     _scheduler.start()
     log.info(
-        "Jadval (Toshkent): %02d:00 hisobot | 10:00+17:00 outreach | "
+        "Jadval (Toshkent): %02d:00 hisobot | "
+        "10:00(restoran) 13:00(klinika) 17:00(salon) 20:00(ta'lim) outreach | "
         "%02d:00 progress | 22:00 xulosa | 10:30 follow-up",
         config.MORNING_HOUR, config.EVENING_HOUR,
     )

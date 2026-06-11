@@ -384,13 +384,26 @@ def add_lead(name: str, phone: str, category: str = None,
         return False
 
 
-def count_new_leads() -> int:
+def count_new_leads(categories: list = None) -> int:
+    if categories:
+        placeholders = ",".join("?" * len(categories))
+        return _conn.execute(
+            f"SELECT COUNT(*) c FROM leads WHERE status='new' AND category IN ({placeholders})",
+            tuple(categories),
+        ).fetchone()["c"]
     return _conn.execute(
         "SELECT COUNT(*) c FROM leads WHERE status='new'"
     ).fetchone()["c"]
 
 
-def get_new_leads(limit: int) -> list:
+def get_new_leads(limit: int, categories: list = None) -> list:
+    if categories:
+        placeholders = ",".join("?" * len(categories))
+        return _conn.execute(
+            f"SELECT * FROM leads WHERE status='new' AND category IN ({placeholders}) "
+            f"ORDER BY id LIMIT ?",
+            (*categories, limit),
+        ).fetchall()
     return _conn.execute(
         "SELECT * FROM leads WHERE status='new' ORDER BY id LIMIT ?", (limit,)
     ).fetchall()

@@ -294,16 +294,16 @@ async def fetch_leads(category: str, city: str, count: int = 20) -> list[dict]:
     return results
 
 
-async def replenish(target: int = 100) -> int:
-    """DB dagi yangi leadlar target dan kam bo'lsa, 2GIS dan to'ldiradi."""
-    current = db.count_new_leads()
+async def replenish(target: int = 100, categories: list = None) -> int:
+    """DB dagi yangi leadlar target dan kam bo'lsa to'ldiradi."""
+    current = db.count_new_leads(categories=categories)
     if current >= target:
         return 0
 
     needed = target - current
     added = 0
 
-    cats = CATEGORIES.copy()
+    cats = (categories or CATEGORIES).copy()
     cities = CITIES.copy()
     random.shuffle(cats)
     random.shuffle(cities)
@@ -326,9 +326,10 @@ async def replenish(target: int = 100) -> int:
 
 # ─── Batch yuborish ───────────────────────────────────────────────────────────
 
-async def send_batch(limit: int = 10) -> tuple[int, int]:
+async def send_batch(limit: int = 10, categories: list = None) -> tuple[int, int]:
     """limit ta yangi leadga xabar yuboradi.
 
+    categories — None bo'lsa barcha kategoriyalar, berilsa faqat o'shalar.
     Qaytaradi: (yuborildi, xato)
     Xabarlar orasida 2-5 daqiqa kutadi (flood himoyasi).
     """
@@ -339,10 +340,11 @@ async def send_batch(limit: int = 10) -> tuple[int, int]:
         return 0, 0
 
     # Leadlar yetarli bo'lmasa avval to'ldiradi
-    if db.count_new_leads() < limit:
-        await replenish(target=max(limit * 3, 60))
+    if db.count_new_leads(categories=categories) < limit:
+        cats_to_fill = categories or CATEGORIES
+        await replenish(target=max(limit * 3, 60), categories=cats_to_fill)
 
-    leads = db.get_new_leads(limit)
+    leads = db.get_new_leads(limit, categories=categories)
     if not leads:
         log.info("Yangi lead yo'q")
         return 0, 0

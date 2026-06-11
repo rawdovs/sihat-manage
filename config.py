@@ -40,8 +40,10 @@ PORTFOLIO_LINK = os.getenv("PORTFOLIO_LINK", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "whisper-1")
 
-# --- GitHub webhook (ixtiyoriy) ---
+# --- GitHub ---
 GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+GITHUB_USERNAME = os.getenv("GITHUB_USERNAME", "")   # masalan: rawdovs
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")         # private repo uchun (ixtiyoriy)
 WEBHOOK_HOST = "0.0.0.0"
 # Render $PORT beradi, yo'q bo'lsa 8080 (local)
 WEBHOOK_PORT = int(os.getenv("PORT") or os.getenv("WEBHOOK_PORT", "8080"))

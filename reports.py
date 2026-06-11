@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import config
 import database as db
+import github as gh
 import llm
 from prompts import ADVICE_PROMPT, EVENING_SUMMARY_PROMPT, MORNING_REPORT_TEMPLATE
 
@@ -193,19 +194,31 @@ async def build_evening_summary() -> str:
     )
 
 
+async def _github_block() -> str:
+    commits = await gh.fetch_today_commits()
+    if not config.GITHUB_USERNAME:
+        return "• GITHUB_USERNAME sozlanmagan (Render env ga qo'shing)"
+    if not commits:
+        return "• Bugun commit topilmadi"
+    lines = []
+    for c in commits:
+        lines.append(f"• [{c['repo']}] {c['message']} `{c['sha']}`")
+    return "\n".join(lines)
+
+
 async def build_auto_evening_report() -> str:
-    """21:00 — avtomatik hisobot: hech qanday qo'lda kiritish talab qilinmaydi."""
+    """21:00 — avtomatik hisobot: GitHub commitlar + loyihalar + mijozlar + outreach."""
     now_str = datetime.now(config.TIMEZONE).strftime("%d-%m-%Y, %H:%M")
 
     projects_block = _projects_status_block()
     clients_block = _clients_block()
     outreach_block = _outreach_sessions_block()
-    work_block = _today_work_block()
+    github_block = await _github_block()
 
     return (
         f"📊 *Kunlik holat — {now_str}*\n\n"
+        f"💻 *Bugun commitlar:*\n{github_block}\n\n"
         f"📁 *Loyihalar:*\n{projects_block}\n\n"
         f"💬 *Mijozlar bugun:*\n{clients_block}\n\n"
-        f"📤 *Outreach:*\n{outreach_block}\n\n"
-        f"✏️ *Bugun yozilgan noteslar:*\n{work_block}"
+        f"📤 *Outreach:*\n{outreach_block}"
     )

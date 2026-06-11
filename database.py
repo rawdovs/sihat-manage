@@ -164,6 +164,15 @@ def active_projects() -> list[sqlite3.Row]:
     ).fetchall()
 
 
+def find_project_by_client_chat(client_chat: int) -> Optional[sqlite3.Row]:
+    """Berilgan chat_id ga tegishli oxirgi faol loyihani qaytaradi."""
+    return _conn.execute(
+        "SELECT * FROM projects WHERE client_chat=? AND status='active' "
+        "ORDER BY id DESC LIMIT 1",
+        (client_chat,),
+    ).fetchone()
+
+
 def find_project_by_name(name: str) -> Optional[sqlite3.Row]:
     return _conn.execute(
         "SELECT * FROM projects WHERE lower(name) = lower(?) AND status='active'",

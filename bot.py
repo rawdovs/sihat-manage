@@ -41,14 +41,22 @@ def _context_for(chat_id: int) -> str:
     if is_developer(chat_id):
         parts.append("Hozir DASTURCHINING o'zi bilan gaplashyapsan (PM/arxitektor rejimi).")
     else:
-        parts.append("Hozir MIJOZ bilan gaplashyapsan (sotuv rejimi). Dasturchi nomidan gapir.")
+        client_proj = db.find_project_by_client_chat(chat_id)
+        if client_proj:
+            parts.append(
+                f"BU MIJOZNING LOYIHASI: '{client_proj['name']}' — "
+                f"{client_proj['progress']:g}% tayyor, {client_proj['duration_days']} kunlik. "
+                "Bu MAVJUD MIJOZ — sotuv strategiyasini ISHLATMA, 'biznesingiz nima?' DEMA."
+            )
+        else:
+            parts.append("Hozir MIJOZ bilan gaplashyapsan (sotuv rejimi). Dasturchi nomidan gapir.")
         if db.deep_work_on():
             parts.append("Dasturchi DEEP WORK rejimida — javobni to'g'ridan-to'g'ri yuborma, "
                          "PENDING_APPROVAL action bilan tasdiqlashga yubor.")
     projs = db.active_projects()
     if projs:
         lst = "; ".join(f"{p['name']} ({p['progress']:g}%)" for p in projs)
-        parts.append(f"Faol loyihalar: {lst}.")
+        parts.append(f"Barcha faol loyihalar: {lst}.")
     if config.CARD_NUMBER:
         parts.append(f"To'lov kartasi: {config.CARD_NUMBER}")
     if config.PORTFOLIO_LINK:

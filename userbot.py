@@ -38,12 +38,24 @@ def _get_name(sender) -> str:
     ])) or str(getattr(sender, "id", "?"))
 
 
-def _build_context() -> str:
-    parts = ["Hozir MIJOZ bilan gaplashyapsan (sotuv rejimi). Dasturchi nomidan gapir."]
+def _build_context(sender_id: int = None) -> str:
+    parts = []
+    if sender_id:
+        client_proj = db.find_project_by_client_chat(sender_id)
+        if client_proj:
+            parts.append(
+                f"BU MIJOZNING LOYIHASI: '{client_proj['name']}' — "
+                f"{client_proj['progress']:g}% tayyor, {client_proj['duration_days']} kunlik. "
+                "Bu MAVJUD MIJOZ — sotuv strategiyasini ISHLATMA, 'biznesingiz nima?' DEMA."
+            )
+        else:
+            parts.append("Hozir MIJOZ bilan gaplashyapsan (sotuv rejimi). Dasturchi nomidan gapir.")
+    else:
+        parts.append("Hozir MIJOZ bilan gaplashyapsan (sotuv rejimi). Dasturchi nomidan gapir.")
     projs = db.active_projects()
     if projs:
         lst = "; ".join(f"{p['name']} ({p['progress']:g}%)" for p in projs)
-        parts.append(f"Faol loyihalar: {lst}.")
+        parts.append(f"Barcha faol loyihalar: {lst}.")
     if config.CARD_NUMBER:
         parts.append(f"To'lov kartasi: {config.CARD_NUMBER}")
     if config.PORTFOLIO_LINK:
@@ -199,22 +211,26 @@ async def _process_message(event, sender_id: int, text: str, sender: User = None
     hist = _history[sender_id]
     is_new_session = len(hist) == 0
 
-    # Birinchi xabar — oddiy salom, LLM chaqirilmaydi
+    # Birinchi xabar — mavjud loyiha borligini tekshir
     if is_new_session:
-        reply = "Assalomu alaykum! Labbay, nima xizmat?"
+        existing_proj = db.find_project_by_client_chat(sender_id)
+        if existing_proj:
+            # Mavjud mijoz — loyiha haqida biladi, sotuv emas yordam rejimi
+            reply = f"Salom! Loyihangiz haqida savolingiz bormi?"
+        else:
+            reply = "Assalomu alaykum! Labbay, nima xizmat?"
         await asyncio.sleep(random.uniform(1.5, 3.0))
         await _client.send_message(sender_id, reply)
 
         hist.append({"role": "user", "content": text})
         hist.append({"role": "assistant", "content": reply})
-
         return
 
-    # Mavjud mijoz — AI javob beradi
+    # Mavjud sessiya — AI javob beradi
     hist.append({"role": "user", "content": text})
 
     try:
-        raw = await llm.ask(list(hist), extra_system=_build_context())
+        raw = await llm.ask(list(hist), extra_system=_build_context(sender_id))
         visible, action = llm.extract_action(raw)
         hist.append({"role": "assistant", "content": raw})
     except Exception as e:

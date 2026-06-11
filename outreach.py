@@ -219,8 +219,9 @@ async def handle_callback(data: str, dev_chat_id: int) -> tuple[str, object, boo
         if value == "send":
             ident = s["identifier"]
             draft = s["draft"]
+            name = s.get("biz_name", "")
             clear(dev_chat_id)
-            result, _ = await userbot.start_conversation(ident, draft)
+            result, _ = await userbot.start_conversation(ident, draft, contact_name=name)
             return f"Yuborildi!\n\n{result}", None, True
 
     return "Noma'lum qadam.", None, True

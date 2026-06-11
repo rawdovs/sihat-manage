@@ -17,7 +17,6 @@ CATEGORIES = [
     "klinika", "stomatologiya", "restoran", "kafe",
     "dorixona", "go'zallik salon", "fitness markaz",
     "ta'lim markaz", "mehmonxona", "optika", "bolalar bog'chasi",
-    "yuridik xizmatlar", "bank", "sug'urta", "avtomobil servisi",
 ]
 
 CITIES = [
@@ -185,8 +184,6 @@ _AMENITY_MAP = {
     "mehmonxona":       ["hotel", "hostel", "guest_house"],
     "optika":           ["optician"],
     "bolalar bog'chasi":["kindergarten"],
-    "bank":             ["bank"],
-    "avtomobil servisi":["car_repair", "car_wash"],
 }
 
 
@@ -359,7 +356,7 @@ async def send_batch(limit: int = 10) -> tuple[int, int]:
         category = lead["category"] or ""
         message = outreach_message(name, category)
 
-        result, tg_chat_id = await userbot.start_conversation(phone, message)
+        result, tg_chat_id = await userbot.start_conversation(phone, message, contact_name=name)
 
         if result.startswith("✅"):
             db.mark_lead_sent(lead["id"], telegram_chat_id=tg_chat_id)

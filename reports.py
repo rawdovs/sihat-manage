@@ -156,8 +156,31 @@ def _today_work_block() -> str:
     return "\n".join(lines) if lines else "• Bugun progress yozilmadi."
 
 
+def _projects_status_block() -> str:
+    projs = db.active_projects()
+    if not projs:
+        return "• Faol loyiha yo'q."
+    lines = []
+    for p in projs:
+        days_left = max(0, p["duration_days"] - _days_passed(p["start_date"]))
+        lines.append(f"• {p['name']}: {p['progress']:g}% — {days_left} kun qoldi")
+    return "\n".join(lines)
+
+
+def _clients_block() -> str:
+    s = db.userbot_stats_today()
+    lines = []
+    if s["new_today"]:
+        lines.append(f"• Yangi mijoz: {s['new_today']} ta")
+    if s["active_today"]:
+        lines.append(f"• Faol suhbat: {s['active_today']} ta")
+    if s["escalated"]:
+        lines.append(f"• Eskalatsiya: {s['escalated']} ta (e'tibor kerak!)")
+    return "\n".join(lines) if lines else "• Bugun faol suhbat yo'q."
+
+
 async def build_evening_summary() -> str:
-    """Kechki xulosa — outreach sessiyalari + bugun nima qilindi."""
+    """22:00 — kechki xulosa: outreach sessiyalari + loyihalar + mijozlar."""
     now_str = datetime.now(config.TIMEZONE).strftime("%d-%m-%Y")
 
     outreach_block = _outreach_sessions_block()
@@ -167,4 +190,22 @@ async def build_evening_summary() -> str:
         f"🌙 *Kechki xulosa — {now_str}*\n\n"
         f"📤 *Outreach:*\n{outreach_block}\n\n"
         f"📁 *Bugun nima qilindi:*\n{work_block}"
+    )
+
+
+async def build_auto_evening_report() -> str:
+    """21:00 — avtomatik hisobot: hech qanday qo'lda kiritish talab qilinmaydi."""
+    now_str = datetime.now(config.TIMEZONE).strftime("%d-%m-%Y, %H:%M")
+
+    projects_block = _projects_status_block()
+    clients_block = _clients_block()
+    outreach_block = _outreach_sessions_block()
+    work_block = _today_work_block()
+
+    return (
+        f"📊 *Kunlik holat — {now_str}*\n\n"
+        f"📁 *Loyihalar:*\n{projects_block}\n\n"
+        f"💬 *Mijozlar bugun:*\n{clients_block}\n\n"
+        f"📤 *Outreach:*\n{outreach_block}\n\n"
+        f"✏️ *Bugun yozilgan noteslar:*\n{work_block}"
     )

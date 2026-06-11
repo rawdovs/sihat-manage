@@ -1,4 +1,4 @@
-"""APScheduler: 09:00 hisobot, 10:00/17:00 outreach, 21:00 progress, 22:00 xulosa."""
+"""APScheduler: 09:00 hisobot, 10:00/13:00/17:00/20:00 outreach, 21:00 auto-hisobot, 22:00 xulosa."""
 import logging
 
 import pytz
@@ -8,7 +8,6 @@ from apscheduler.triggers.cron import CronTrigger
 import config
 import reports
 from core import bot
-from prompts import EVENING_PROMPT
 
 log = logging.getLogger(__name__)
 # pytz ishlatiladi — tizim tzdata ga bog'liq emas, Render da ham ishlaydi
@@ -24,9 +23,11 @@ async def _morning_job():
 
 
 async def _evening_job():
+    """21:00 — avtomatik kunlik holat hisoboti. Hech narsa yozish shart emas."""
     if not config.DEVELOPER_CHAT_ID:
         return
-    await bot.send_message(config.DEVELOPER_CHAT_ID, EVENING_PROMPT)
+    text = await reports.build_auto_evening_report()
+    await bot.send_message(config.DEVELOPER_CHAT_ID, text, parse_mode="Markdown")
 
 
 async def _evening_summary_job():

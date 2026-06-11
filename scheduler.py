@@ -87,10 +87,7 @@ async def _outreach_job(label: str):
     log.info(summary)
 
     if sent == 0 and failed == 0:
-        await bot.send_message(
-            config.DEVELOPER_CHAT_ID,
-            f"Outreach ({label}): Yangi lead yo'q — {', '.join(categories or [])}",
-        )
+        log.info("Outreach (%s): yangi lead yo'q — %s", label, categories)
 
 
 def start():

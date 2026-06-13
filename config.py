@@ -57,6 +57,7 @@ EVENING_HOUR = int(os.getenv("EVENING_HOUR", "21"))   # 21:00 progress so'rovi
 ADVANCE_PERCENT = int(os.getenv("ADVANCE_PERCENT", "50"))  # avans foizi
 DB_PATH = os.getenv("DB_PATH", "assistant.db")
 
-# --- Avtomatik outreach (2GIS leads) ---
-TWOGIS_API_KEY = os.getenv("TWOGIS_API_KEY", "")   # developer.2gis.com dan olinadi
-OUTREACH_DAILY = int(os.getenv("OUTREACH_DAILY", "10"))  # har bir seans uchun (10:00 va 17:00)
+# --- Avtomatik outreach ---
+TWOGIS_API_KEY   = os.getenv("TWOGIS_API_KEY", "")
+YANDEX_API_KEY   = os.getenv("YANDEX_API_KEY", "")   # developer.tech.yandex.ru dan olinadi
+OUTREACH_DAILY   = int(os.getenv("OUTREACH_DAILY", "10"))

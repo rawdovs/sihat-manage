@@ -152,6 +152,40 @@ def _extract_phone(item: dict) -> str:
     return ""
 
 
+# Yandex Search uchun shahar markazlari (lon, lat)
+_CITY_LL = {
+    "Toshkent":  (69.2401, 41.2995),
+    "Samarqand": (66.9597, 39.6547),
+    "Buxoro":    (64.4286, 39.7747),
+    "Namangan":  (71.6725, 40.9983),
+    "Andijon":   (72.3438, 40.7829),
+    "Farg'ona":  (71.7864, 40.3842),
+    "Qarshi":    (65.7908, 38.8610),
+    "Nukus":     (59.6106, 42.4600),
+    "Jizzax":    (67.8422, 40.1158),
+    "Termiz":    (67.2783, 37.2242),
+    "Guliston":  (68.7864, 40.4897),
+    "Navoiy":    (65.3792, 40.0842),
+    "Chirchiq":  (69.5836, 41.4686),
+    "Olmaliq":   (69.5997, 40.8481),
+    "Bekobod":   (69.2614, 40.2214),
+}
+
+# Yandex Search uchun kategoriya so'rovlari (rus tilida — Yandex uchun yaxshiroq)
+_YANDEX_QUERY = {
+    "klinika":          "клиника медицинский центр",
+    "stomatologiya":    "стоматология зубной врач",
+    "restoran":         "ресторан",
+    "kafe":             "кафе",
+    "dorixona":         "аптека",
+    "go'zallik salon":  "салон красоты парикмахерская",
+    "fitness markaz":   "фитнес спортзал",
+    "ta'lim markaz":    "учебный центр курсы",
+    "mehmonxona":       "гостиница отель",
+    "optika":           "оптика очки",
+    "bolalar bog'chasi":"детский сад",
+}
+
 # Shaharlar uchun taxminiy koordinatalar (lat_min, lon_min, lat_max, lon_max)
 _CITY_BBOX = {
     "Toshkent":   (41.20, 69.10, 41.42, 69.45),
@@ -286,8 +320,75 @@ async def fetch_from_2gis(category: str, city: str, count: int = 20) -> list[dic
     return results
 
 
+async def fetch_from_yandex(category: str, city: str, count: int = 20) -> list[dict]:
+    """Yandex Maps Search API dan leads yuklaydi. Telefon raqamlari bor."""
+    if not config.YANDEX_API_KEY:
+        return []
+    ll = _CITY_LL.get(city)
+    if not ll:
+        return []
+    query = _YANDEX_QUERY.get(category.lower(), category)
+
+    url = "https://search-maps.yandex.ru/v1/"
+    params = {
+        "text":    f"{query} {city}",
+        "lang":    "ru_RU",
+        "ll":      f"{ll[0]},{ll[1]}",
+        "spn":     "0.3,0.3",
+        "results": min(count * 2, 50),
+        "type":    "biz",
+        "apikey":  config.YANDEX_API_KEY,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, params=params, timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Yandex %d (%s, %s)", resp.status, category, city)
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        log.warning("Yandex xatosi (%s, %s): %s", category, city, e)
+        return []
+
+    results = []
+    for feature in data.get("features", []):
+        props = feature.get("properties", {})
+        name = props.get("name", "").strip()
+        meta = props.get("CompanyMetaData", {})
+        address = meta.get("address", "")
+
+        # Telefon raqamlarni olish
+        phone = ""
+        for ph in meta.get("Phones", []):
+            raw = ph.get("formatted", "") or ph.get("number", "")
+            candidate = _extract_mobile_phone(raw)
+            if candidate:
+                phone = candidate
+                break
+
+        if name and phone:
+            results.append({
+                "name":     name,
+                "phone":    phone,
+                "category": category,
+                "city":     city,
+                "address":  address,
+            })
+        if len(results) >= count:
+            break
+
+    log.info("Yandex (%s, %s): %d ta lead topildi", category, city, len(results))
+    return results
+
+
 async def fetch_leads(category: str, city: str, count: int = 20) -> list[dict]:
-    """Eng yaxshi mavjud manbadan leads yuklaydi: avval Overpass, keyin 2GIS."""
+    """Manbalar tartibi: Yandex → Overpass → 2GIS."""
+    if config.YANDEX_API_KEY:
+        results = await fetch_from_yandex(category, city, count)
+        if results:
+            return results
     results = await fetch_from_overpass(category, city, count)
     if not results and config.TWOGIS_API_KEY:
         results = await fetch_from_2gis(category, city, count)

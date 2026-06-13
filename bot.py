@@ -214,15 +214,15 @@ async def on_projects(message: Message):
 async def on_testleads(message: Message):
     if not is_developer(message.chat.id):
         return
-    await message.answer("Overpass test — bir nechta kategoriya va shahar tekshirilmoqda...")
     import leads as leads_mod
+
+    source = "Yandex" if config.YANDEX_API_KEY else "Overpass (OSM)"
+    await message.answer(f"Lead test boshlandi — manba: {source}...")
 
     test_pairs = [
         ("klinika", "Toshkent"),
-        ("stomatologiya", "Toshkent"),
         ("restoran", "Toshkent"),
-        ("kafe", "Toshkent"),
-        ("dorixona", "Toshkent"),
+        ("go'zallik salon", "Toshkent"),
         ("klinika", "Samarqand"),
         ("restoran", "Samarqand"),
     ]
@@ -231,24 +231,23 @@ async def on_testleads(message: Message):
     lines = []
     for cat, city in test_pairs:
         try:
-            results = await leads_mod.fetch_from_overpass(cat, city, count=5)
+            results = await leads_mod.fetch_leads(cat, city, count=5)
             if results:
                 lines.append(f"\n*{cat} / {city}* — {len(results)} ta:")
                 for r in results[:3]:
                     lines.append(f"  • {r['name']}: {r['phone']}")
                 total += len(results)
-        except Exception:
-            pass
+        except Exception as e:
+            lines.append(f"\n*{cat} / {city}* — xato: {e}")
 
     if total == 0:
         await message.answer(
-            "Hech narsa topilmadi.\n"
-            "OSM da O'zbek bizneslari mobil raqam kam yozgan — bu normal.\n"
-            "Yechim: qo'lda lead qo'shish (/addlead) yoki Google Sheets import."
+            f"{source} hech narsa qaytarmadi.\n"
+            "YANDEX_API_KEY Render ga qo'shilganini tekshiring."
         )
     else:
         await message.answer(
-            f"Jami {total} ta mobil raqamli lead topildi:\n" + "\n".join(lines),
+            f"Jami *{total}* ta mobil raqamli lead ({source}):\n" + "\n".join(lines),
             parse_mode="Markdown"
         )
 
